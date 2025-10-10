@@ -44,6 +44,7 @@ const CHALLENGE_COMMAND = {
   contexts: [0, 2],
 };
 
+
 const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND];
 
 await InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
