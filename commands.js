@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { getRPSChoices } from './game.js';
+import { DIV_COMMAND } from './commands/div.js';
 import { capitalize, InstallGlobalCommands } from './utils.js';
 
 // Get the game choices from game.js
@@ -44,6 +45,10 @@ const CHALLENGE_COMMAND = {
   contexts: [0, 2],
 };
 
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND];
+
+// Add it to the list of commands you register
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND];
 
 InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
+
+

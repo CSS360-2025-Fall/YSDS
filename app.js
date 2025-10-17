@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { handleDivCommand } from './commands/div.js';
 import express from 'express';
 import {
   ButtonStyleTypes,
@@ -57,6 +58,17 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         },
       });
     }
+
+        // "/div" command
+    if (name === 'div') {
+      const result = handleDivCommand(data);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
+      });
+    }
+
+
 
     console.error(`unknown command: ${name}`);
     return res.status(400).json({ error: 'unknown command' });
