@@ -17,7 +17,54 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 // To keep track of our active games
 const activeGames = {};
+function handleDivCommand(data) {
+  const num1 = Number(data.options?.[0]?.value || 0);
+  const num2 = Number(data.options?.[1]?.value || 1);
 
+  if (num2 === 0) {
+    return {
+      content: "❌ Cannot divide by zero!",
+    };
+  }
+
+  const result = num1 / num2;
+  return {
+    content: `✅ The result of ${num1} ÷ ${num2} is **${result}**`,
+  };
+}
+function handleMultiCommand(data) {
+  const num1 = Number(data.options?.[0]?.value || 0);
+  const num2 = Number(data.options?.[1]?.value || 1);
+
+  if (num2 === 0 || num1 === 0) {
+    return {
+      content: `✅ The result of ${num1} * ${num2} is **${0}**`,
+    };
+  }
+
+  const result = num1 * num2;
+  return {
+    content: `✅ The result of ${num1} * ${num2} is **${result}**`,
+  };
+}
+function handleAddCommand(data) {
+  const num1 = Number(data.options?.[0]?.value || 0);
+  const num2 = Number(data.options?.[1]?.value || 1);
+
+  const result = num1 + num2;
+  return {
+    content: `✅ The result of ${num1} + ${num2} is **${result}**`,
+  };
+}
+function handleSubCommand(data) {
+  const num1 = Number(data.options?.[0]?.value || 0);
+  const num2 = Number(data.options?.[1]?.value || 1);
+
+  const result = num1 - num2;
+  return {
+    content: `✅ The result of ${num1} - ${num2} is **${result}**`,
+  };
+}
 /**
  * Interactions endpoint URL where Discord will send HTTP requests
  * Parse request body and verifies incoming requests using discord-interactions package
@@ -55,6 +102,39 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
             }
           ]
         },
+      });
+    }
+
+        // "/div" command
+    if (name === 'div') {
+      const result = handleDivCommand(data);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
+      });
+    }
+
+    if (name === 'multi') {
+      const result = handleMultiCommand(data);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
+      });
+    }
+
+    if (name === 'add') {
+      const result = handleAddCommand(data);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
+      });
+    }
+
+    if (name === 'sub') {
+      const result = handleSubCommand(data);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
       });
     }
 
