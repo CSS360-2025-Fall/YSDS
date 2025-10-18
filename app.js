@@ -11,143 +11,141 @@ import {
 import { getRandomEmoji, DiscordRequest } from './utils.js';
 import { getShuffledOptions, getResult } from './game.js';
 
+// Create an express app
 const app = express();
+// Get port, or default to 3000
 const PORT = process.env.PORT || 3000;
+// To keep track of our active games
 const activeGames = {};
+function handleDivCommand(data) {
+  const num1 = Number(data.options?.[0]?.value || 0);
+  const num2 = Number(data.options?.[1]?.value || 1);
 
-// --- Discord Interactions Endpoint ---
-app.post(
-  '/interactions',
-  verifyKeyMiddleware(process.env.PUBLIC_KEY),
-  async function (req, res) {
-    const { id, type, data } = req.body;
-
-    // --- Handle PING ---
-    if (type === InteractionType.PING) {
-      return res.send({ type: InteractionResponseType.PONG });
-    }
-
-    // --- Handle Slash Commands ---
-    if (type === InteractionType.APPLICATION_COMMAND) {
-      const { name } = data;
-
-      // /test command
-      if (name === 'test') {
-        return res.send({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: { content: `hello world ${getRandomEmoji()}` },
-        });
-      }
-
-      // /challenge command
-      if (name === 'challenge' && id) {
-        const context = req.body.context;
-        const userId =
-          context === 0 ? req.body.member.user.id : req.body.user.id;
-        const objectName = req.body.data.options[0].value;
-
-        activeGames[id] = { id: userId, objectName };
-
-        return res.send({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            content: `Rock Paper Scissors challenge from <@${userId}>!`,
-            components: [
-              {
-                type: MessageComponentTypes.ACTION_ROW,
-                components: [
-                  {
-                    type: MessageComponentTypes.BUTTON,
-                    custom_id: `accept_button_${req.body.id}`,
-                    label: 'Accept',
-                    style: ButtonStyleTypes.PRIMARY,
-                  },
-                ],
-              },
-            ],
-          },
-        });
-      }
-
-      console.error(`Unknown command: ${name}`);
-      return res.status(400).json({ error: 'Unknown command' });
-    }
-
-    // --- Handle Message Components (buttons, selects) ---
-    if (type === InteractionType.MESSAGE_COMPONENT) {
-      const componentId = data.custom_id;
-
-      // When someone clicks the "Accept" button
-      if (componentId.startsWith('accept_button_')) {
-        const gameId = componentId.replace('accept_button_', '');
-        const endpoint = `webhooks/${process.env.APP_ID}/${req.body.token}/messages/${req.body.message.id}`;
-
-        try {
-          // Send an ephemeral select menu
-          await res.send({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-              flags: InteractionResponseFlags.EPHEMERAL,
-              content: 'What is your object of choice?',
-              components: [
-                {
-                  type: MessageComponentTypes.ACTION_ROW,
-                  components: [
-                    {
-                      type: MessageComponentTypes.STRING_SELECT,
-                      custom_id: `select_choice_${gameId}`,
-                      options: getShuffledOptions(),
-                    },
-                  ],
-                },
-              ],
-            },
-          });
-
-          // Delete the old challenge message
-          await DiscordRequest(endpoint, { method: 'DELETE' });
-        } catch (err) {
-          console.error('Error sending message:', err);
-        }
-        return;
-      }
-
-      // When someone selects their object
-      if (componentId.startsWith('select_choice_')) {
-        const gameId = componentId.replace('select_choice_', '');
-
-        if (activeGames[gameId]) {
-          const context = req.body.context;
-          const userId =
-            context === 0 ? req.body.member.user.id : req.body.user.id;
-          const objectName = data.values[0];
-
-          // Compute result
-          const resultStr = getResult(activeGames[gameId], {
-            id: userId,
-            objectName,
-          });
-
-          delete activeGames[gameId];
-
-          // Send updated message (remove menu + show result)
-          return res.send({
-            type: InteractionResponseType.UPDATE_MESSAGE,
-            data: {
-              content: `You chose **${objectName}**!\n\n${resultStr}`,
-              components: [], // hides the menu after choice
-            },
-          });
-        }
-      }
-    }
-
-    console.error('Unknown interaction type', type);
-    return res.status(400).json({ error: 'Unknown interaction type' });
+  if (num2 === 0) {
+    return {
+      content: "❌ Cannot divide by zero!",
+    };
   }
-);
 
-// --- Start Server ---
+  const result = num1 / num2;
+  return {
+    content: `✅ The result of ${num1} ÷ ${num2} is **${result}**`,
+  };
+}
+function handleMultiCommand(data) {
+  const num1 = Number(data.options?.[0]?.value || 0);
+  const num2 = Number(data.options?.[1]?.value || 1);
+
+  if (num2 === 0 || num1 === 0) {
+    return {
+      content: `✅ The result of ${num1} * ${num2} is **${0}**`,
+    };
+  }
+
+  const result = num1 * num2;
+  return {
+    content: `✅ The result of ${num1} * ${num2} is **${result}**`,
+  };
+}
+function handleAddCommand(data) {
+  const num1 = Number(data.options?.[0]?.value || 0);
+  const num2 = Number(data.options?.[1]?.value || 1);
+
+  const result = num1 + num2;
+  return {
+    content: `✅ The result of ${num1} + ${num2} is **${result}**`,
+  };
+}
+function handleSubCommand(data) {
+  const num1 = Number(data.options?.[0]?.value || 0);
+  const num2 = Number(data.options?.[1]?.value || 1);
+
+  const result = num1 - num2;
+  return {
+    content: `✅ The result of ${num1} - ${num2} is **${result}**`,
+  };
+}
+/**
+ * Interactions endpoint URL where Discord will send HTTP requests
+ * Parse request body and verifies incoming requests using discord-interactions package
+ */
+app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
+  // Interaction id, type and data
+  const { id, type, data } = req.body;
+
+  /**
+   * Handle verification requests
+   */
+  if (type === InteractionType.PING) {
+    return res.send({ type: InteractionResponseType.PONG });
+  }
+
+  /**
+   * Handle slash command requests
+   * See https://discord.com/developers/docs/interactions/application-commands#slash-commands
+   */
+  if (type === InteractionType.APPLICATION_COMMAND) {
+    const { name } = data;
+
+    // "test" command
+    if (name === 'test') {
+      // Send a message into the channel where command was triggered from
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          flags: InteractionResponseFlags.IS_COMPONENTS_V2,
+          components: [
+            {
+              type: MessageComponentTypes.TEXT_DISPLAY,
+              // Fetches a random emoji to send from a helper function
+              content: `hello world ${getRandomEmoji()}`
+            }
+          ]
+        },
+      });
+    }
+
+        // "/div" command
+    if (name === 'div') {
+      const result = handleDivCommand(data);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
+      });
+    }
+
+    if (name === 'multi') {
+      const result = handleMultiCommand(data);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
+      });
+    }
+
+    if (name === 'add') {
+      const result = handleAddCommand(data);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
+      });
+    }
+
+    if (name === 'sub') {
+      const result = handleSubCommand(data);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
+      });
+    }
+
+    console.error(`unknown command: ${name}`);
+    return res.status(400).json({ error: 'unknown command' });
+  }
+
+  console.error('unknown interaction type', type);
+  return res.status(400).json({ error: 'unknown interaction type' });
+});
+
 app.listen(PORT, () => {
-  console.log('🚀 Listening on port', PORT);
+  console.log('Listening on port', PORT);
 });
