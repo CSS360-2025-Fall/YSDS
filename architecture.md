@@ -1,6 +1,7 @@
 
-# Code Architecture - Yahya
+# Code Architecture 
 
+Yahya's Portion
 This section explains the structure of the Discord bot project, including the purpose of each file and folder.
 
 
