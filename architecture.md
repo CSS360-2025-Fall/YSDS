@@ -171,3 +171,69 @@ Discord requires this within 3 seconds, otherwise the bot must first “defer”
 Discord receives your response and posts it as a message in the channel (or ephemeral message to the user).
 
 In short: User → Discord → your ngrok URL → your bot → Discord → User
+
+
+
+---
+
+Shivek – User Interaction and Command Flow
+
+Overview
+This section explains how users interact with the YSDS Discord bot through slash commands and how each request travels through the system until a response is shown in Discord.
+
+User Interaction Path
+
+User types a command such as /add a: 4 b: 6 or /challenge object: rock inside a Discord channel.
+
+Discord instantly sends this interaction event to our public HTTPS endpoint (the one exposed by ngrok, e.g. https://xyz.ngrok.io/interactions).
+
+The request reaches our local Express server in app.js, which runs the verification middleware from discord-interactions to confirm the signature is from Discord.
+
+Once verified, the server inspects the command name and routes it to the correct handler in commands.js.
+
+The matching command object performs the requested logic (math or game) and builds a JSON reply.
+
+That JSON is returned to Discord’s API and appears instantly as a formatted message to the user in the same channel.
+
+Calculator Command Flow (/add, /sub, /multi, /div)
+
+Step	Action	Example
+①	User runs /add a: 8 b: 5	
+②	Discord forwards an interaction payload with the two numbers to our Express endpoint	
+③	commands.js locates the ADD_COMMAND object (matching name:"add")	
+④	The handler parses a and b, computes the result (13)	
+⑤	A simple text message like “✅ Result: 8 + 5 = 13” is returned	
+
+Each of the other math commands follows the same pipeline, differing only in the arithmetic performed.
+
+Game Command Flow (/challenge)
+
+The user selects an option (rock/paper/scissors) from the dropdown created by createCommandChoices() in commands.js.
+
+The choice is passed to game.js, which randomly generates the bot’s own move.
+
+The outcome (win/lose/tie) is calculated and sent back as a Discord message.
+
+Feedback and Responsiveness
+
+All commands reply instantly within Discord.
+
+Users always see clear success ✅ or error ❌ messages.
+
+Discord’s built-in options guarantee valid input types before the bot executes.
+
+Why This Design Matters
+
+Keeps all interaction logic inside commands.js for easier maintenance and expansion.
+
+Separates math/game logic from network handling for cleaner architecture.
+
+Provides a consistent user experience with the same flow and feedback pattern for every command.
+
+Future Add-Ons
+
+Support for embedded rich responses (color, emoji).
+
+A /help command listing all math features.
+
+Logging user command usage for analytics.
