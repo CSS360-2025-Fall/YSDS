@@ -131,3 +131,43 @@ If a large binary already landed in git history, consider using git filter-repo 
 TL;DR
 ngrok gives our local HTTP interactions server a public HTTPS URL so Discord can call it during development. Keep secrets out of git, verify signatures, prefer a reserved domain, and remember to update the Interactions Endpoint URL when your tunnel URL changes.
 
+
+Doug's portion:
+
+
+# How the container interacts with ngrok and Discord 
+
+1. Your bot receives and verifies the request from Discord through ngrok
+
+Your bot’s HTTP server (running in Docker) receives this POST request.
+
+Discord includes headers:
+X-Signature-Ed25519 and X-Signature-Timestamp
+
+Your bot uses your app’s PUBLIC_KEY to verify the signature — this ensures it’s really from Discord, not someone faking it.
+
+If verification fails → ignore the request.
+
+2. Your bot processes the command
+
+Once verified:
+
+The bot’s dispatcher looks at the command name (calc add).
+
+It calls your calculator function: 2 + 3 = 5.
+
+Then the bot sends a response back to Discord, usually JSON like:
+
+{
+  "type": 4,
+  "data": { "content": "Result: 5" }
+}
+
+
+Discord requires this within 3 seconds, otherwise the bot must first “defer” and send the result later.
+
+3. Discord delivers the result to the user
+
+Discord receives your response and posts it as a message in the channel (or ephemeral message to the user).
+
+In short: User → Discord → your ngrok URL → your bot → Discord → User
