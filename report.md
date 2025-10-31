@@ -54,7 +54,7 @@ Completing the Rock–Paper–Scissors result logic.
 Adding a /help command for discoverability.
 
 
-Vulnerability Report: Improper HTTP Response for Unknown Commands -- Doug
+# Vulnerability Report: Improper HTTP Response for Unknown Commands -- Doug
 
 Description:
 The bot returns an HTTP 400 Bad Request when encountering unknown or unhandled slash commands. Discord’s API expects a 200 OK response with a valid interaction payload for all handled requests. Returning 400 causes Discord to interpret the interaction as a failure, resulting in “Interaction failed” messages for users and potential warning logs in the developer dashboard.
