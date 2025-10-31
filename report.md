@@ -8,7 +8,7 @@ Originally, when launching the bot, we had a test command to make sure it proper
 
 So we need to delete it to save space and minimize confusion.
 
-# Code Overwrites All Commands Every Time
+# Code Overwrites All Commands Every Time: Sebi's Portion
 
 Right now, the code uses a global command update that replaces every single Discord command in the bot each time this script runs. It uses this line:
 PUT /applications/${APP_ID}/commands
