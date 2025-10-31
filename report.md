@@ -39,8 +39,7 @@ The current setup works for small projects. But as our bot grows and more people
 
 
 
-By: Shivek Tiwari
-USABILITY TESTING REPORT – YSDS DISCORD BOT
+# USABILITY TESTING REPORT – YSDS DISCORD BOT by Shivek Tiwari
 
 The YSDS bot currently supports six commands: /test, /add, /sub, /multi, /div, and /challenge.
 All arithmetic commands function correctly, providing instant feedback with clear results and error handling (for example, divide-by-zero prevention).
