@@ -37,8 +37,10 @@ To fix this, we can:
   Add a safety check before overwriting global commands.
 The current setup works for small projects. But as our bot grows and more people work on it, replacing all commands every time becomes dangerous. Changing to safer command-updating methods will protect teamwork, prevent bugs, and make the bot easier to maintain in the future.
 
+
+
 By: Shivek Tiwari
-Usability Testing Report – YSDS Discord Bot
+USABILITY TESTING REPORT – YSDS DISCORD BOT
 
 The YSDS bot currently supports six commands: /test, /add, /sub, /multi, /div, and /challenge.
 All arithmetic commands function correctly, providing instant feedback with clear results and error handling (for example, divide-by-zero prevention).
