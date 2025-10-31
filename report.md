@@ -37,6 +37,23 @@ To fix this, we can:
   Add a safety check before overwriting global commands.
 The current setup works for small projects. But as our bot grows and more people work on it, replacing all commands every time becomes dangerous. Changing to safer command-updating methods will protect teamwork, prevent bugs, and make the bot easier to maintain in the future.
 
+By: Shivek Tiwari
+Usability Testing Report – YSDS Discord Bot
+
+The YSDS bot currently supports six commands: /test, /add, /sub, /multi, /div, and /challenge.
+All arithmetic commands function correctly, providing instant feedback with clear results and error handling (for example, divide-by-zero prevention).
+However, the /challenge command for Rock–Paper–Scissors responds without executing the actual game logic, indicating incomplete functionality.
+
+From a usability standpoint, the bot is stable and responsive but lacks user guidance and consistency in responses. There is no /help command to introduce features, and messages are plain text without visual structure or embedded formatting. Feedback style varies slightly between commands, which can confuse users.
+
+Overall, the bot performs well for basic functions but would benefit from:
+
+Completing the Rock–Paper–Scissors result logic.
+
+Adding a /help command for discoverability.
+
+
+
 # Use this to seperate the portions guys.
 
 - Math command can be merged into one, so the user doesn't have to remember 4 different commands
