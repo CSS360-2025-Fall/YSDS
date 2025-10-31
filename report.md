@@ -54,7 +54,7 @@ Completing the Rock–Paper–Scissors result logic.
 Adding a /help command for discoverability.
 
 
-# Vulnerability Report: Improper HTTP Response for Unknown Commands -- Doug
+# Improper HTTP Response for Unknown Commands -- Doug
 
 Description:
 The bot returns an HTTP 400 Bad Request when encountering unknown or unhandled slash commands. Discord’s API expects a 200 OK response with a valid interaction payload for all handled requests. Returning 400 causes Discord to interpret the interaction as a failure, resulting in “Interaction failed” messages for users and potential warning logs in the developer dashboard.
@@ -68,3 +68,12 @@ Discord may flag the endpoint as unreliable due to repeated failed responses.
 Debugging becomes harder due to misleading error logs.
 
 Fix -> Return an HTTP 200 status with a valid interaction response, such as an ephemeral message indicating that the command is unrecognized.
+
+# Challenge Command Regression – Doug
+
+During development, someone accidentally deleted the `if (name === 'challenge')` portion in `commands.js` while the rest of the registration script stayed intact. Discord still exposes `/challenge` to users, but the server no longer routes those interactions and instead falls through to the unknown-command fallback, returning HTTP 400 “Interaction failed.” This regression blocks every rock–paper–scissors match and shows how easy it is for command handling to break when a single branch disappears without tests or automated safeguards.
+
+# Command Copy Drift – Doug
+
+Multiple math command descriptions and option labels in `commands.js` have diverged from the actual behavior. `/add` advertises “a * b”, and `/sub` swaps the minuend/subtrahend descriptions. The slash-command UI still renders these strings, so contributors and testers see misleading guidance and risk assuming the handlers are wrong. Because Discord globally caches command metadata, fixing typos requires a full re-register cycle, making drift expensive. We should repair the text and add a quick checklist (or test) so future edits don’t let the copy fall out of sync again.
+
