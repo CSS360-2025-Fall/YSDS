@@ -1,4 +1,12 @@
-- Unnecessary Test Command
+
+# Code Architecture 
+
+Yahya's Portion
+This section explains the existence of the Unnecessary Test Command.
+
+Originally, when launching the bot, we had a test command to make sure it properly functioned, and it continued to remain in the bot until the moment of writing this. It isn't necessary due to the other commands in the bot, as well as the fact that it takes up space in the commands.js file, which could confuse someone covering the code.
+
+So we need to delete it to save space and minimize confusion.
 
 - Math command can be merged into one, so the user doesn't have to remember 4 different commands
 
