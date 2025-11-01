@@ -1,12 +1,13 @@
 
-# Shedding the Test Command 
+# Shedding the Test Command: Yahya's Portion
 
-Yahya's Portion
 This section explains the existence of the Unnecessary Test Command.
 
 Originally, when launching the bot, we had a test command to make sure it properly functioned, and it continued to remain in the bot until the moment of writing this. It isn't necessary due to the other commands in the bot, as well as the fact that it takes up space in the commands.js file, which could confuse someone covering the code.
 
-So we need to delete it to save space and minimize confusion.
+According to the Threat Modeling Manifesto, continuous refinement is important aspect. So spending time refining the code and simplying it for future team use as well as removing and uncesseary attacking surface makes a large difference in the structure of the code.
+
+It's also to help with the SDLC. When reaching the Testing and Debugging portion of the cycle we don't need unnecessary testing methods.
 
 # Code Overwrites All Commands Every Time: Sebi's Portion
 
