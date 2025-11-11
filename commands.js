@@ -109,6 +109,24 @@ const TEST_COMMAND = {
   integration_types: [0, 1],
   contexts: [0, 1, 2],
 };
+const GUESSGAME_COMMAND = {
+  name: 'guessgame',
+  description: 'Start a new Hotter/Colder guessing game',
+  type: 1, // CHAT_INPUT
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const GUESS_COMMAND = {
+  name: 'guess',
+  description: 'Make a guess in your active Hotter/Colder game',
+  options: [
+    { type: 10, name: 'number', description: 'Your guess (1-100)', required: true },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
 
 // Command containing options
 const CHALLENGE_COMMAND = {
@@ -130,7 +148,7 @@ const CHALLENGE_COMMAND = {
 
 
 // Add it to the list of commands you register
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND];
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND,GUESSGAME_COMMAND, GUESS_COMMAND];
 // Add it at the bottom of commands.js
 // ===== GLOBAL COMMAND INSTALL =====
 import 'dotenv/config';
