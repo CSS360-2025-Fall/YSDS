@@ -101,6 +101,27 @@ const SUB_COMMAND = {
   integration_types: [0, 1],
   contexts: [0, 2],
 };
+const REMIND_COMMAND = {
+  name: 'remindme',
+  description: 'Ask the bot to remind you after a duration',
+  options: [
+    {
+      type: 3, // STRING
+      name: 'duration',
+      description: 'When should I remind you? (e.g., 10m, 2h, 45 seconds)',
+      required: true,
+    },
+    {
+      type: 3, // STRING
+      name: 'message',
+      description: 'What should I remind you about?',
+      required: true,
+    },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
 // Simple test command
 const TEST_COMMAND = {
   name: 'test',
@@ -130,7 +151,15 @@ const CHALLENGE_COMMAND = {
 
 
 // Add it to the list of commands you register
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND];
+const ALL_COMMANDS = [
+  TEST_COMMAND,
+  CHALLENGE_COMMAND,
+  DIV_COMMAND,
+  MULTI_COMMAND,
+  ADD_COMMAND,
+  SUB_COMMAND,
+  REMIND_COMMAND,
+];
 // Add it at the bottom of commands.js
 // ===== GLOBAL COMMAND INSTALL =====
 import 'dotenv/config';
@@ -171,4 +200,3 @@ import 'dotenv/config';
   console.error('❌ Install failed:', e);
   process.exit(1);
 });
-
