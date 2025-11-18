@@ -146,9 +146,27 @@ const CHALLENGE_COMMAND = {
   contexts: [0, 2],
 };
 
+// Joke command
+const JOKE_COMMAND = {
+  name: 'joke',
+  description: 'Tell a random joke',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+// Quote command
+const QUOTE_COMMAND = {
+  name: 'quote',
+  description: 'Send a random inspirational or funny quote',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
 
 // Add it to the list of commands you register
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND,GUESSGAME_COMMAND, GUESS_COMMAND];
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND,GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND];
 // Add it at the bottom of commands.js
 // ===== GLOBAL COMMAND INSTALL =====
 import 'dotenv/config';

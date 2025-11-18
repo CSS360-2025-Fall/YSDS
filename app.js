@@ -73,6 +73,33 @@ function handleGuessGameCommand(userId) {
   }
 }
 
+// Joke handler
+function handleJokeCommand() {
+  const jokes = [
+    "Why don’t programmers like nature? Too many bugs.",
+    "Why do Java developers wear glasses? Because they can't C#.",
+    "I told my computer I needed a break—it said 'No problem, I'll go to sleep.'",
+    "Debugging is like being a detective in a crime movie where you're also the murderer.",
+    "Why was the developer broke? Because he used up all his cache."
+  ];
+
+  return { content: jokes[Math.floor(Math.random() * jokes.length)] };
+}
+
+// Quote handler
+function handleQuoteCommand() {
+  const quotes = [
+    "“The best way to predict the future is to invent it.” — Alan Kay",
+    "“Stay hungry, stay foolish.” — Steve Jobs",
+    "“Whether you think you can or you think you can’t, you're right.” — Henry Ford",
+    "“Strive for progress, not perfection.”",
+    "“Small steps every day lead to big results.”"
+  ];
+
+  return { content: quotes[Math.floor(Math.random() * quotes.length)] };
+}
+
+
 function handleGuessCommand(data, userId) {
   const game = activeGames[userId];
   if (!game) return { content: "You don't have an active game. Start one with `/guessgame`." };
@@ -105,6 +132,23 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
 
   if (type === InteractionType.APPLICATION_COMMAND) {
     const { name } = data;
+
+    if (name === 'joke') {
+      const result = handleJokeCommand();
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result
+      });
+    }
+    
+    if (name === 'quote') {
+      const result = handleQuoteCommand();
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result
+      });
+    }
+
 
     // "test" command
     if (name === 'test') {
