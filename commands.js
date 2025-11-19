@@ -122,6 +122,37 @@ const REMIND_COMMAND = {
   integration_types: [0, 1],
   contexts: [0, 2],
 };
+const SIMON_COMMAND = {
+  name: 'simon',
+  description: 'Start a Simon Says memory challenge',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const SIMON_GUESS_COMMAND = {
+  name: 'sg',
+  description: 'Submit your guess for the Simon Says sequence',
+  options: [
+    {
+      type: 3, // STRING
+      name: 'sequence',
+      description: 'Enter the memorized numbers (e.g., 3 5 7 or 357)',
+      required: true,
+    },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const SIMON_LEADERBOARD_COMMAND = {
+  name: 'slb',
+  description: 'View the Simon Says leaderboard',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
 // Simple test command
 const TEST_COMMAND = {
   name: 'test',
@@ -159,6 +190,9 @@ const ALL_COMMANDS = [
   ADD_COMMAND,
   SUB_COMMAND,
   REMIND_COMMAND,
+  SIMON_COMMAND,
+  SIMON_GUESS_COMMAND,
+  SIMON_LEADERBOARD_COMMAND,
 ];
 // Add it at the bottom of commands.js
 // ===== GLOBAL COMMAND INSTALL =====
