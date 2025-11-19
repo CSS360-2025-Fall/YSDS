@@ -11,6 +11,95 @@ import {
 import { getRandomEmoji, DiscordRequest } from './utils.js';
 import { getShuffledOptions, getResult } from './game.js';
 
+
+const MIN_REMINDER_MS = 10 * 1000; // keep reminders reasonable (>10s)
+const MAX_REMINDER_MS = 24 * 60 * 60 * 1000; // cap at 24h to avoid runaway timers
+
+function getOptionValue(options = [], optionName) {
+  return options.find(option => option.name === optionName)?.value;
+}
+
+function parseReminderDuration(raw) {
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.toLowerCase();
+  const durationRegex = /(\d+(?:\.\d+)?)\s*(hours?|hrs?|hr|h|minutes?|mins?|m|seconds?|secs?|sec|s)/g;
+  let totalMs = 0;
+  let match;
+  let foundAny = false;
+
+  while ((match = durationRegex.exec(normalized)) !== null) {
+    foundAny = true;
+    const value = Number(match[1]);
+    if (Number.isNaN(value)) {
+      continue;
+    }
+
+    const unit = match[2];
+    if (unit.startsWith('h')) {
+      totalMs += value * 60 * 60 * 1000;
+    } else if (unit.startsWith('m')) {
+      totalMs += value * 60 * 1000;
+    } else if (unit.startsWith('s')) {
+      totalMs += value * 1000;
+    }
+  }
+
+  if (!foundAny || totalMs === 0) {
+    return null;
+  }
+
+  return Math.round(totalMs);
+}
+
+function humanizeDuration(ms) {
+  const parts = [];
+  const hours = Math.floor(ms / (60 * 60 * 1000));
+  const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+  const seconds = Math.floor((ms % (60 * 1000)) / 1000);
+
+  if (hours) parts.push(`${hours} hour${hours === 1 ? '' : 's'}`);
+  if (minutes) parts.push(`${minutes} minute${minutes === 1 ? '' : 's'}`);
+  if (!hours && !minutes && seconds) {
+    parts.push(`${seconds} second${seconds === 1 ? '' : 's'}`);
+  }
+
+  if (!parts.length) {
+    return 'a few seconds';
+  }
+
+  if (parts.length === 1) {
+    return parts[0];
+  }
+
+  const last = parts.pop();
+  return `${parts.join(', ')} and ${last}`;
+}
+
+function scheduleReminder({ delayMs, reminderText, userId, appId, interactionToken }) {
+  if (!appId || !interactionToken) {
+    console.error('Cannot schedule reminder without app ID or interaction token');
+    return;
+  }
+
+  setTimeout(async () => {
+    try {
+      const mention = userId ? `<@${userId}>` : 'Reminder';
+      await DiscordRequest(`webhooks/${appId}/${interactionToken}`, {
+        method: 'POST',
+        body: {
+          content: `${mention} ⏰ Reminder: ${reminderText}`,
+          flags: InteractionResponseFlags.EPHEMERAL,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send reminder follow-up', error);
+    }
+  }, delayMs);
+}
+
 // Create an express app
 const app = express();
 // Get port, or default to 3000
@@ -59,6 +148,52 @@ function handleSubCommand(data) {
 
   const result = num1 - num2;
   return { content: `✅ The result of ${num1} - ${num2} is **${result}**` };
+}
+
+const tttGames = {}; // key: userId, value: 9-element array board
+
+function newBoard() {
+  return Array(9).fill(null);
+}
+
+function renderBoard(board) {
+  const display = board.map((cell, i) => (cell ? cell : (i + 1)));
+  return (
+    '```text\n' +
+    `${display[0]} | ${display[1]} | ${display[2]}\n` +
+    '---------\n' +
+    `${display[3]} | ${display[4]} | ${display[5]}\n` +
+    '---------\n' +
+    `${display[6]} | ${display[7]} | ${display[8]}\n` +
+    '```'
+  );
+}
+
+const WIN_LINES = [
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [0, 3, 6],
+  [1, 4, 7],
+  [2, 5, 8],
+  [0, 4, 8],
+  [2, 4, 6],
+];
+
+function checkWinner(board, symbol) {
+  return WIN_LINES.some(([a, b, c]) => (
+    board[a] === symbol && board[b] === symbol && board[c] === symbol
+  ));
+}
+
+function getBotMoveIndex(board) {
+  const empty = [];
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] === null) empty.push(i);
+  }
+  if (empty.length === 0) return null;
+  const randomIndex = Math.floor(Math.random() * empty.length);
+  return empty[randomIndex];
 }
 
 /**
@@ -133,6 +268,216 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
   if (type === InteractionType.APPLICATION_COMMAND) {
     const { name } = data;
 
+    // "/tictactoe" command
+    if (name === 'tictactoe') {
+      // Get the position option (1-9)
+      const positionOption = data.options?.find(
+        (opt) => opt.name === 'position'
+      );
+      const position = Number(positionOption?.value);
+
+      if (!Number.isInteger(position) || position < 1 || position > 9) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: '❌ Please choose a position from **1** to **9**.',
+          },
+        });
+      }
+
+      // Identify user (works in guilds + DMs)
+      const userId =
+        req.body.member?.user?.id ||
+        req.body.user?.id;
+
+      if (!userId) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: '❌ Could not identify user for this game.',
+          },
+        });
+      }
+
+      // Load existing board or start a new one
+      let board = tttGames[userId];
+      if (!board) board = newBoard();
+
+      const index = position - 1;
+
+      // If the cell is taken, don't let the user overwrite it
+      if (board[index] !== null) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content:
+              'That spot is already taken.\n' +
+              renderBoard(board),
+          },
+        });
+      }
+
+      // Player move: X
+      board[index] = 'X';
+
+      // Check if player wins
+      if (checkWinner(board, 'X')) {
+        delete tttGames[userId];
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content:
+              `You placed **X** at position **${position}**.\n` +
+              renderBoard(board) +
+              '\n🎉 You win! Game over.',
+          },
+        });
+      }
+
+      // Check for draw before bot moves
+      if (!board.includes(null)) {
+        delete tttGames[userId];
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content:
+              `You placed **X** at position **${position}**.\n` +
+              renderBoard(board) +
+              '\n🤝 It\'s a draw! Game over.',
+          },
+        });
+      }
+
+      // Bot move: O
+      const botIndex = getBotMoveIndex(board);
+      if (botIndex === null) {
+        delete tttGames[userId];
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content:
+              `You placed **X** at position **${position}**.\n` +
+              renderBoard(board) +
+              '\n🤝 It\'s a draw! Game over.',
+          },
+        });
+      }
+
+      board[botIndex] = 'O';
+      const botPos = botIndex + 1;
+
+      // Check if bot wins
+      if (checkWinner(board, 'O')) {
+        delete tttGames[userId];
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content:
+              `You placed **X** at position **${position}**.\n` +
+              `I placed **O** at position **${botPos}**.\n` +
+              renderBoard(board) +
+              '\n😈 I win! Game over.',
+          },
+        });
+      }
+
+      // Check for draw after bot move
+      if (!board.includes(null)) {
+        delete tttGames[userId];
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content:
+              `You placed **X** at position **${position}**.\n` +
+              `I placed **O** at position **${botPos}**.\n` +
+              renderBoard(board) +
+              '\n🤝 It\'s a draw! Game over.',
+          },
+        });
+      }
+
+      // Game continues – save state for this user
+      tttGames[userId] = board;
+
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          content:
+            `You placed **X** at position **${position}**.\n` +
+            `I placed **O** at position **${botPos}**.\n` +
+            renderBoard(board) +
+            '\nYour turn again! Use `/tictactoe position:<1-9>` to keep playing.',
+        },
+      });
+    }
+
+    if (name === 'remindme') {
+      const durationInput = getOptionValue(data.options, 'duration');
+      const reminderText = (getOptionValue(data.options, 'message') || '').trim();
+
+      if (!reminderText) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
+            content: 'Please include what to remind you about.',
+          },
+        });
+      }
+
+      const delayMs = parseReminderDuration(durationInput);
+      if (!delayMs) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
+            content: 'I could not understand that duration. Try values like `10m`, `45 seconds`, or `2h 30m`.',
+          },
+        });
+      }
+
+      if (delayMs < MIN_REMINDER_MS) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
+            content: 'Reminders must be at least 10 seconds in the future.',
+          },
+        });
+      }
+
+      if (delayMs > MAX_REMINDER_MS) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
+            content: 'I can only remember things up to 24 hours from now.',
+          },
+        });
+      }
+
+      const appId = process.env.APP_ID;
+      const interactionToken = req.body?.token;
+      const userId = req.body?.member?.user?.id || req.body?.user?.id;
+
+      scheduleReminder({
+        delayMs,
+        reminderText,
+        userId,
+        appId,
+        interactionToken,
+      });
+
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          flags: InteractionResponseFlags.EPHEMERAL,
+          content: `✅ I'll remind you in ${humanizeDuration(delayMs)}.`,
+        },
+      });
+    }
+
+
     if (name === 'joke') {
       const result = handleJokeCommand();
       return res.send({
@@ -140,7 +485,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         data: result
       });
     }
-    
+
     if (name === 'quote') {
       const result = handleQuoteCommand();
       return res.send({
