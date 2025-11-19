@@ -187,6 +187,46 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
       return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
     }
 
+
+    // Combined Math Command
+    if (name === 'math') {
+      const options = data.options;
+
+      const operation = options.find(o => o.name === 'operation').value;
+      const num1 = Number(options.find(o => o.name === 'num1').value);
+      const num2 = Number(options.find(o => o.name === 'num2').value);
+
+      // Convert values back into the format your handlers expect:
+      const fakeData = {
+        options: [
+          { value: num1 },
+          { value: num2 }
+        ]
+      };
+
+      let result;
+
+      switch (operation) {
+        case 'add':
+          result = handleAddCommand(fakeData);
+          break;
+        case 'sub':
+          result = handleSubCommand(fakeData);
+          break;
+        case 'multi':
+          result = handleMultiCommand(fakeData);
+          break;
+        case 'div':
+          result = handleDivCommand(fakeData);
+          break;
+      }
+
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result
+      });
+    }
+
     // Hotter/Colder game commands
     if (name === 'guessgame') {
       const result = handleGuessGameCommand(member.user.id);

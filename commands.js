@@ -164,9 +164,44 @@ const QUOTE_COMMAND = {
   contexts: [0, 2],
 };
 
+// Math command
+const MATH_COMMAND = {
+  name: 'math',
+  description: 'Perform a math operation',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+  options: [
+    {
+      type: 3, // STRING
+      name: 'operation',
+      description: 'Choose the operation',
+      required: true,
+      choices: [
+        { name: 'Add', value: 'add' },
+        { name: 'Subtract', value: 'sub' },
+        { name: 'Multiply', value: 'multi' },
+        { name: 'Divide', value: 'div' }
+      ]
+    },
+    {
+      type: 10, // NUMBER (can use decimals)
+      name: 'num1',
+      description: 'First number',
+      required: true,
+    },
+    {
+      type: 10, // NUMBER
+      name: 'num2',
+      description: 'Second number',
+      required: true,
+    }
+  ],
+};
+
 
 // Add it to the list of commands you register
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND,GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND];
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND,GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, MATH_COMMAND];
 // Add it at the bottom of commands.js
 // ===== GLOBAL COMMAND INSTALL =====
 import 'dotenv/config';
