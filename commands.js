@@ -96,24 +96,6 @@ const SUB_COMMAND = {
       description: 'Enter the second number (Minuend)',
       required: true,
     },
-
-    const TICTACTOE_COMMAND = {
-  name: 'tictactoe',
-  description: 'Play tic tac toe against the bot',
-  options: [
-    {
-      type: 4, // INTEGER
-      name: 'position',
-      description: 'Pick a position 1-9',
-      required: true,
-    },
-
-  ],
-  type: 1,
-  integration_types: [0, 1],
-  contexts: [0, 2],
-};
-
   ],
   type: 1, // CHAT_INPUT command
   integration_types: [0, 1],
@@ -126,6 +108,46 @@ const TEST_COMMAND = {
   type: 1,
   integration_types: [0, 1],
   contexts: [0, 1, 2],
+};
+const GUESSGAME_COMMAND = {
+  name: 'guessgame',
+  description: 'Start a new Hotter/Colder guessing game',
+  type: 1, // CHAT_INPUT
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const GUESS_COMMAND = {
+  name: 'guess',
+  description: 'Make a guess in your active Hotter/Colder game',
+  options: [
+    { type: 10, name: 'number', description: 'Your guess (1-100)', required: true },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const REMIND_COMMAND = {
+  name: 'remindme',
+  description: 'Ask the bot to remind you after a duration',
+  options: [
+    {
+      type: 3, // STRING
+      name: 'duration',
+      description: 'When should I remind you? (e.g., 10m, 2h, 45 seconds)',
+      required: true,
+    },
+    {
+      type: 3, // STRING
+      name: 'message',
+      description: 'What should I remind you about?',
+      required: true,
+    },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
 };
 
 // Command containing options
@@ -146,6 +168,101 @@ const CHALLENGE_COMMAND = {
   contexts: [0, 2],
 };
 
+// Joke command
+const JOKE_COMMAND = {
+  name: 'joke',
+  description: 'Tell a random joke',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const TICTACTOE_COMMAND = {
+  name: 'tictactoe',
+  description: 'Play tic tac toe against the bot',
+  options: [
+    {
+      type: 4, // INTEGER
+      name: 'position',
+      description: 'Pick a position 1-9',
+      required: true,
+    },
+
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+
+// Quote command
+const QUOTE_COMMAND = {
+  name: 'quote',
+  description: 'Send a random inspirational or funny quote',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+// Math command
+const MATH_COMMAND = {
+  name: 'math',
+  description: 'Perform a math operation',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+  options: [
+    {
+      type: 3, // STRING
+      name: 'operation',
+      description: 'Choose the operation',
+      required: true,
+      choices: [
+        { name: 'Add', value: 'add' },
+        { name: 'Subtract', value: 'sub' },
+        { name: 'Multiply', value: 'multi' },
+        { name: 'Divide', value: 'div' }
+      ]
+    },
+    {
+      type: 10, // NUMBER (can use decimals)
+      name: 'num1',
+      description: 'First number',
+      required: true,
+    },
+    {
+      type: 10, // NUMBER
+      name: 'num2',
+      description: 'Second number',
+      required: true,
+    }
+  ],
+};
+
+
+const HANGMAN_COMMAND = {
+  name: 'hangman',
+  description: 'Start a new text-based Hangman game',
+  type: 1, // CHAT_INPUT
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const HANGGUESS_COMMAND = {
+  name: 'hangguess',
+  description: 'Guess a letter in your active Hangman game',
+  options: [
+    {
+      type: 3, // STRING
+      name: 'letter',
+      description: 'Your letter guess (a-z)',
+      required: true,
+    },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
 
 // Add it to the list of commands you register
 const ALL_COMMANDS = [
@@ -155,7 +272,15 @@ const ALL_COMMANDS = [
   MULTI_COMMAND,
   ADD_COMMAND,
   SUB_COMMAND,
-  TICTACTOE_COMMAND, 
+  GUESSGAME_COMMAND,
+  GUESS_COMMAND,
+  JOKE_COMMAND,
+  QUOTE_COMMAND,
+  TICTACTOE_COMMAND,
+  REMIND_COMMAND,
+  MATH_COMMAND,
+  HANGMAN_COMMAND,
+  HANGGUESS_COMMAND,
 ];
 
 // Add it at the bottom of commands.js
