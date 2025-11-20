@@ -16,24 +16,29 @@ function createCommandChoices() {
 
   return commandChoices;
 }
+
+/* ------------------------------
+   Your existing math commands
+------------------------------ */
+
 const DIV_COMMAND = {
   name: 'div',
   description: 'Divide two numbers (a ÷ b)',
   options: [
     {
-      type: 10, // NUMBER
+      type: 10,
       name: 'a',
       description: 'Enter the first number (dividend)',
       required: true,
     },
     {
-      type: 10, // NUMBER
+      type: 10,
       name: 'b',
       description: 'Enter the second number (divisor)',
       required: true,
     },
   ],
-  type: 1, // CHAT_INPUT command
+  type: 1,
   integration_types: [0, 1],
   contexts: [0, 2],
 };
@@ -43,65 +48,71 @@ const MULTI_COMMAND = {
   description: 'Multiply two numbers (a * b)',
   options: [
     {
-      type: 10, // NUMBER
+      type: 10,
       name: 'a',
       description: 'Enter the first number (Multiplicand)',
       required: true,
     },
     {
-      type: 10, // NUMBER
+      type: 10,
       name: 'b',
       description: 'Enter the second number (Multiplier)',
       required: true,
     },
   ],
-  type: 1, // CHAT_INPUT command
+  type: 1,
   integration_types: [0, 1],
   contexts: [0, 2],
 };
+
 const ADD_COMMAND = {
   name: 'add',
-  description: 'Add two numbers (a * b)',
+  description: 'Add two numbers (a + b)',
   options: [
     {
-      type: 10, // NUMBER
+      type: 10,
       name: 'a',
       description: 'Enter the first number (Addend)',
       required: true,
     },
     {
-      type: 10, // NUMBER
+      type: 10,
       name: 'b',
       description: 'Enter the second number (Addend)',
       required: true,
     },
   ],
-  type: 1, // CHAT_INPUT command
+  type: 1,
   integration_types: [0, 1],
   contexts: [0, 2],
 };
+
 const SUB_COMMAND = {
   name: 'sub',
-  description: 'Subtract two numbers (a * b)',
+  description: 'Subtract two numbers (a - b)',
   options: [
     {
-      type: 10, // NUMBER
+      type: 10,
       name: 'a',
       description: 'Enter the first number (Subtrahend)',
       required: true,
     },
     {
-      type: 10, // NUMBER
+      type: 10,
       name: 'b',
       description: 'Enter the second number (Minuend)',
       required: true,
     },
   ],
-  type: 1, // CHAT_INPUT command
+  type: 1,
   integration_types: [0, 1],
   contexts: [0, 2],
 };
-// Simple test command
+
+/* ------------------------------
+   Existing base commands
+------------------------------ */
+
 const TEST_COMMAND = {
   name: 'test',
   description: 'Basic command',
@@ -110,7 +121,6 @@ const TEST_COMMAND = {
   contexts: [0, 1, 2],
 };
 
-// Command containing options
 const CHALLENGE_COMMAND = {
   name: 'challenge',
   description: 'Challenge to a match of rock paper scissors',
@@ -128,12 +138,35 @@ const CHALLENGE_COMMAND = {
   contexts: [0, 2],
 };
 
+/* ------------------------------
+   ⭐ NEW: Blackjack command
+------------------------------ */
 
-// Add it to the list of commands you register
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND];
-// Add it at the bottom of commands.js
-// ===== GLOBAL COMMAND INSTALL =====
-import 'dotenv/config';
+const BLACKJACK_COMMAND = {
+  name: 'blackjack',
+  description: 'Play a game of Blackjack!',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+/* ------------------------------
+   Register all commands
+------------------------------ */
+
+const ALL_COMMANDS = [
+  TEST_COMMAND,
+  CHALLENGE_COMMAND,
+  DIV_COMMAND,
+  MULTI_COMMAND,
+  ADD_COMMAND,
+  SUB_COMMAND,
+  BLACKJACK_COMMAND, // <-- NEW
+];
+
+/* ------------------------------
+   Global command installer
+------------------------------ */
 
 (async () => {
   const { DISCORD_TOKEN, APP_ID } = process.env;
@@ -171,4 +204,3 @@ import 'dotenv/config';
   console.error('❌ Install failed:', e);
   process.exit(1);
 });
-

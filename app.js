@@ -8,88 +8,76 @@ import {
   MessageComponentTypes,
   verifyKeyMiddleware,
 } from 'discord-interactions';
+
 import { getRandomEmoji, DiscordRequest } from './utils.js';
 import { getShuffledOptions, getResult } from './game.js';
+
+// ⭐ NEW: Import Blackjack functions
+import { startBlackjack, handleBlackjackAction } from './blackjack.js';
+
+// ⭐ NEW: Store blackjack games per user
+const blackjackGames = {};
 
 // Create an express app
 const app = express();
 // Get port, or default to 3000
 const PORT = process.env.PORT || 3000;
-// To keep track of our active games
-const activeGames = {};
+
+// --- Your math functions (unchanged) ---
 function handleDivCommand(data) {
   const num1 = Number(data.options?.[0]?.value || 0);
   const num2 = Number(data.options?.[1]?.value || 1);
 
   if (num2 === 0) {
-    return {
-      content: "❌ Cannot divide by zero!",
-    };
+    return { content: "❌ Cannot divide by zero!" };
   }
-
   const result = num1 / num2;
-  return {
-    content: `✅ The result of ${num1} ÷ ${num2} is **${result}**`,
-  };
+  return { content: `✅ The result of ${num1} ÷ ${num2} is **${result}**` };
 }
+
 function handleMultiCommand(data) {
   const num1 = Number(data.options?.[0]?.value || 0);
   const num2 = Number(data.options?.[1]?.value || 1);
-
-  if (num2 === 0 || num1 === 0) {
-    return {
-      content: `✅ The result of ${num1} * ${num2} is **${0}**`,
-    };
-  }
-
   const result = num1 * num2;
-  return {
-    content: `✅ The result of ${num1} * ${num2} is **${result}**`,
-  };
+  return { content: `✅ The result of ${num1} * ${num2} is **${result}**` };
 }
+
 function handleAddCommand(data) {
   const num1 = Number(data.options?.[0]?.value || 0);
   const num2 = Number(data.options?.[1]?.value || 1);
-
   const result = num1 + num2;
-  return {
-    content: `✅ The result of ${num1} + ${num2} is **${result}**`,
-  };
+  return { content: `✅ The result of ${num1} + ${num2} is **${result}**` };
 }
+
 function handleSubCommand(data) {
   const num1 = Number(data.options?.[0]?.value || 0);
   const num2 = Number(data.options?.[1]?.value || 1);
-
   const result = num1 - num2;
-  return {
-    content: `✅ The result of ${num1} - ${num2} is **${result}**`,
-  };
+  return { content: `✅ The result of ${num1} - ${num2} is **${result}**` };
 }
+
 /**
- * Interactions endpoint URL where Discord will send HTTP requests
- * Parse request body and verifies incoming requests using discord-interactions package
+ * Discord interactions endpoint
  */
 app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
-  // Interaction id, type and data
-  const { id, type, data } = req.body;
+  const { type, data } = req.body;
 
-  /**
-   * Handle verification requests
-   */
+  /* ------------------------
+     PING (Discord handshake)
+     ------------------------ */
   if (type === InteractionType.PING) {
     return res.send({ type: InteractionResponseType.PONG });
   }
 
-  /**
-   * Handle slash command requests
-   * See https://discord.com/developers/docs/interactions/application-commands#slash-commands
-   */
+  /* ------------------------
+     Slash Commands
+     ------------------------ */
   if (type === InteractionType.APPLICATION_COMMAND) {
-    const { name } = data;
+    const name = data.name;
+    const userId = req.body.member?.user?.id || req.body.user?.id;
 
-    // "test" command
+    // test
     if (name === 'test') {
-      // Send a message into the channel where command was triggered from
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
@@ -97,55 +85,88 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
           components: [
             {
               type: MessageComponentTypes.TEXT_DISPLAY,
-              // Fetches a random emoji to send from a helper function
-              content: `hello world ${getRandomEmoji()}`
-            }
-          ]
+              content: `hello world ${getRandomEmoji()}`,
+            },
+          ],
         },
       });
     }
 
-        // "/div" command
+    // div
     if (name === 'div') {
-      const result = handleDivCommand(data);
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: result,
+        data: handleDivCommand(data),
       });
     }
 
+    // multi
     if (name === 'multi') {
-      const result = handleMultiCommand(data);
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: result,
+        data: handleMultiCommand(data),
       });
     }
 
+    // add
     if (name === 'add') {
-      const result = handleAddCommand(data);
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: result,
+        data: handleAddCommand(data),
       });
     }
 
+    // sub
     if (name === 'sub') {
-      const result = handleSubCommand(data);
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: result,
+        data: handleSubCommand(data),
       });
     }
 
-    console.error(`unknown command: ${name}`);
+    /* ------------------------
+       ⭐ NEW: Blackjack slash command
+       ------------------------ */
+    if (name === 'blackjack') {
+      const response = startBlackjack(userId, blackjackGames);
+
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: response,
+      });
+    }
+
+    console.error("unknown command:", name);
     return res.status(400).json({ error: 'unknown command' });
   }
 
-  console.error('unknown interaction type', type);
+  /* ------------------------
+     ⭐ NEW: Blackjack Button Interactions
+     ------------------------ */
+  if (type === InteractionType.MESSAGE_COMPONENT) {
+    const customId = data.custom_id;
+    const userId = req.body.member?.user?.id || req.body.user?.id;
+
+    if (customId.startsWith("blackjack_")) {
+      const action = customId.replace("blackjack_", "");
+      const response = handleBlackjackAction(userId, action, blackjackGames);
+
+      return res.send({
+        type: InteractionResponseType.UPDATE_MESSAGE,
+        data: response,
+      });
+    }
+
+    console.error("unknown component:", customId);
+    return res.status(400).json({ error: 'unknown component' });
+  }
+
   return res.status(400).json({ error: 'unknown interaction type' });
 });
 
+/* ------------------------
+   Server Start
+   ------------------------ */
 app.listen(PORT, () => {
   console.log('Listening on port', PORT);
-});// Task 3: Addition user story – documented by Shivek Tiwari
+});
