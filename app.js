@@ -11,62 +11,145 @@ import {
 import { getRandomEmoji, DiscordRequest } from './utils.js';
 import { getShuffledOptions, getResult } from './game.js';
 
+
+const MIN_REMINDER_MS = 10 * 1000; // keep reminders reasonable (>10s)
+const MAX_REMINDER_MS = 24 * 60 * 60 * 1000; // cap at 24h to avoid runaway timers
+
+function getOptionValue(options = [], optionName) {
+  return options.find(option => option.name === optionName)?.value;
+}
+
+function parseReminderDuration(raw) {
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.toLowerCase();
+  const durationRegex = /(\d+(?:\.\d+)?)\s*(hours?|hrs?|hr|h|minutes?|mins?|m|seconds?|secs?|sec|s)/g;
+  let totalMs = 0;
+  let match;
+  let foundAny = false;
+
+  while ((match = durationRegex.exec(normalized)) !== null) {
+    foundAny = true;
+    const value = Number(match[1]);
+    if (Number.isNaN(value)) {
+      continue;
+    }
+
+    const unit = match[2];
+    if (unit.startsWith('h')) {
+      totalMs += value * 60 * 60 * 1000;
+    } else if (unit.startsWith('m')) {
+      totalMs += value * 60 * 1000;
+    } else if (unit.startsWith('s')) {
+      totalMs += value * 1000;
+    }
+  }
+
+  if (!foundAny || totalMs === 0) {
+    return null;
+  }
+
+  return Math.round(totalMs);
+}
+
+function humanizeDuration(ms) {
+  const parts = [];
+  const hours = Math.floor(ms / (60 * 60 * 1000));
+  const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+  const seconds = Math.floor((ms % (60 * 1000)) / 1000);
+
+  if (hours) parts.push(`${hours} hour${hours === 1 ? '' : 's'}`);
+  if (minutes) parts.push(`${minutes} minute${minutes === 1 ? '' : 's'}`);
+  if (!hours && !minutes && seconds) {
+    parts.push(`${seconds} second${seconds === 1 ? '' : 's'}`);
+  }
+
+  if (!parts.length) {
+    return 'a few seconds';
+  }
+
+  if (parts.length === 1) {
+    return parts[0];
+  }
+
+  const last = parts.pop();
+  return `${parts.join(', ')} and ${last}`;
+}
+
+function scheduleReminder({ delayMs, reminderText, userId, appId, interactionToken }) {
+  if (!appId || !interactionToken) {
+    console.error('Cannot schedule reminder without app ID or interaction token');
+    return;
+  }
+
+  setTimeout(async () => {
+    try {
+      const mention = userId ? `<@${userId}>` : 'Reminder';
+      await DiscordRequest(`webhooks/${appId}/${interactionToken}`, {
+        method: 'POST',
+        body: {
+          content: `${mention} ⏰ Reminder: ${reminderText}`,
+          flags: InteractionResponseFlags.EPHEMERAL,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send reminder follow-up', error);
+    }
+  }, delayMs);
+}
+
 // Create an express app
 const app = express();
 // Get port, or default to 3000
 const PORT = process.env.PORT || 3000;
 // To keep track of our active games
 const activeGames = {};
+
+/**
+ * Math command handlers
+ */
 function handleDivCommand(data) {
   const num1 = Number(data.options?.[0]?.value || 0);
   const num2 = Number(data.options?.[1]?.value || 1);
 
   if (num2 === 0) {
-    return {
-      content: "❌ Cannot divide by zero!",
-    };
+    return { content: "❌ Cannot divide by zero!" };
   }
 
   const result = num1 / num2;
-  return {
-    content: `✅ The result of ${num1} ÷ ${num2} is **${result}**`,
-  };
+  return { content: `✅ The result of ${num1} ÷ ${num2} is **${result}**` };
 }
+
 function handleMultiCommand(data) {
   const num1 = Number(data.options?.[0]?.value || 0);
   const num2 = Number(data.options?.[1]?.value || 1);
 
   if (num2 === 0 || num1 === 0) {
-    return {
-      content: `✅ The result of ${num1} * ${num2} is **${0}**`,
-    };
+    return { content: `✅ The result of ${num1} * ${num2} is **0**` };
   }
 
   const result = num1 * num2;
-  return {
-    content: `✅ The result of ${num1} * ${num2} is **${result}**`,
-  };
+  return { content: `✅ The result of ${num1} * ${num2} is **${result}**` };
 }
+
 function handleAddCommand(data) {
   const num1 = Number(data.options?.[0]?.value || 0);
   const num2 = Number(data.options?.[1]?.value || 1);
 
   const result = num1 + num2;
-  return {
-    content: `✅ The result of ${num1} + ${num2} is **${result}**`,
-  };
+  return { content: `✅ The result of ${num1} + ${num2} is **${result}**` };
 }
+
 function handleSubCommand(data) {
   const num1 = Number(data.options?.[0]?.value || 0);
   const num2 = Number(data.options?.[1]?.value || 1);
 
   const result = num1 - num2;
-  return {
-    content: `✅ The result of ${num1} - ${num2} is **${result}**`,
-  };
+  return { content: `✅ The result of ${num1} - ${num2} is **${result}**` };
 }
 
-// ========== TIC TAC TOE STATE + HELPERS ==========
 const tttGames = {}; // key: userId, value: 9-element array board
 
 function newBoard() {
@@ -112,81 +195,250 @@ function getBotMoveIndex(board) {
   const randomIndex = Math.floor(Math.random() * empty.length);
   return empty[randomIndex];
 }
-// ========== END TIC TAC TOE HELPERS ==========
+
+/**
+ * Hangman game handlers
+ */
+const hangmanGames = {};
+
+const HANGMAN_WORDS = [
+  'discord',
+  'bot',
+  'javascript',
+  'uwbothell',
+  'software',
+  'hangman',
+  'college',
+  'computer',
+  'coding',
+  'quality',
+  'algorithm',
+  'binary',
+  'pointer',
+  'compiler',
+  'runtime',
+  'recursion',
+  'hashing',
+  'dataset',
+  'variable',
+  'function',
+  'boolean',
+  'array',
+  'linkedlist',
+  'database',
+  'network',
+  'latency',
+  'server',
+  'client',
+  'protocol',
+  'command',
+  'syntax',
+  'debug',
+  'vscode',
+  'project',
+  'midterm',
+  'lecture',
+  'robotics',
+  'kernel',
+  'sandbox',
+  'pipeline'
+];
+
+function pickRandomWord() {
+  const idx = Math.floor(Math.random() * HANGMAN_WORDS.length);
+  return HANGMAN_WORDS[idx].toLowerCase();
+}
+
+function formatMaskedWord(word, guessedLetters) {
+  const letters = word.split('').map(ch => {
+    if (!/[a-z]/.test(ch)) return ch; // non-letters as-is
+    return guessedLetters.has(ch) ? ch : '_';
+  });
+  return letters.join(' ');
+}
+
+function formatGuessedLetters(guessedLetters) {
+  if (!guessedLetters.size) return '(none)';
+  return Array.from(guessedLetters).sort().join(', ');
+}
+
+function renderHangmanState(game) {
+  const masked = formatMaskedWord(game.word, game.guessedLetters);
+  const guessed = formatGuessedLetters(game.guessedLetters);
+  return (
+    '```text\n' +
+    `Word:   ${masked}\n` +
+    `Guessed: ${guessed}\n` +
+    `Lives:  ${game.livesLeft}/${game.maxLives}\n` +
+    '```'
+  );
+}
+
+function handleHangmanStart(userId) {
+  const word = pickRandomWord();
+  const game = {
+    word,
+    guessedLetters: new Set(),
+    livesLeft: 6,
+    maxLives: 6,
+  };
+  hangmanGames[userId] = game;
+
+  return {
+    content:
+      '🎮 New Hangman game started!\n' +
+      renderHangmanState(game) +
+      '\nGuess a letter with `/hangguess letter:<a-z>`.',
+  };
+}
+
+function handleHangmanGuess(data, userId) {
+  const game = hangmanGames[userId];
+  if (!game) {
+    return {
+      content:
+        "❌ You don't have an active Hangman game. Start one with `/hangman`.",
+    };
+  }
+
+  const letterOption = data.options?.find(o => o.name === 'letter');
+  let raw = String(letterOption?.value || '').toLowerCase().trim();
+
+  if (!raw || !/[a-z]/.test(raw[0])) {
+    return {
+      content: '❌ Please provide a single letter (a–z).',
+    };
+  }
+
+  const letter = raw[0];
+
+  if (game.guessedLetters.has(letter)) {
+    return {
+      content:
+        `⚠️ You already guessed **${letter}**.\n` +
+        renderHangmanState(game),
+    };
+  }
+
+  game.guessedLetters.add(letter);
+
+  if (game.word.includes(letter)) {
+    // Check win: all letters in the word have been guessed
+    const allGuessed = game.word
+      .split('')
+      .filter(ch => /[a-z]/.test(ch))
+      .every(ch => game.guessedLetters.has(ch));
+
+    if (allGuessed) {
+      const masked = formatMaskedWord(game.word, game.guessedLetters);
+      delete hangmanGames[userId];
+      return {
+        content:
+          '🎉 You guessed the word!\n' +
+          '```text\n' +
+          `Word:   ${masked}\n` +
+          '```',
+      };
+    }
+
+    return {
+      content:
+        `✅ Good guess! **${letter}** is in the word.\n` +
+        renderHangmanState(game),
+    };
+  } else {
+    game.livesLeft -= 1;
+
+    if (game.livesLeft <= 0) {
+      const answer = game.word;
+      delete hangmanGames[userId];
+      return {
+        content:
+          '💀 No lives left. Game over!\n' +
+          `The word was: **${answer}**`,
+      };
+    }
+
+    return {
+      content:
+        `❌ Nope, **${letter}** is not in the word.\n` +
+        renderHangmanState(game),
+    };
+  }
+}
 
 
 /**
- * Interactions endpoint URL where Discord will send HTTP requests
- * Parse request body and verifies incoming requests using discord-interactions package
+ * Hotter/Colder game handlers
  */
-app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
-  // Interaction id, type and data
-  const { id, type, data } = req.body;
+function handleGuessGameCommand(userId) {
+  if (!activeGames[userId]) {
+    activeGames[userId] = { number: Math.floor(Math.random() * 100) + 1, previousGuess: null };
+    return { content: "🎲 I picked a number between 1 and 100! Make a guess using `/guess <number>`." };
+  } else {
+    return { content: "You already have an ongoing game! Use `/guess <number>` to continue." };
+  }
+}
 
-  /**
-   * Handle verification requests
-   */
-  if (type === InteractionType.PING) {
-    return res.send({ type: InteractionResponseType.PONG });
+// Joke handler
+function handleJokeCommand() {
+  const jokes = [
+    "Why don’t programmers like nature? Too many bugs.",
+    "Why do Java developers wear glasses? Because they can't C#.",
+    "I told my computer I needed a break—it said 'No problem, I'll go to sleep.'",
+    "Debugging is like being a detective in a crime movie where you're also the murderer.",
+    "Why was the developer broke? Because he used up all his cache."
+  ];
+
+  return { content: jokes[Math.floor(Math.random() * jokes.length)] };
+}
+
+// Quote handler
+function handleQuoteCommand() {
+  const quotes = [
+    "“The best way to predict the future is to invent it.” — Alan Kay",
+    "“Stay hungry, stay foolish.” — Steve Jobs",
+    "“Whether you think you can or you think you can’t, you're right.” — Henry Ford",
+    "“Strive for progress, not perfection.”",
+    "“Small steps every day lead to big results.”"
+  ];
+
+  return { content: quotes[Math.floor(Math.random() * quotes.length)] };
+}
+
+
+function handleGuessCommand(data, userId) {
+  const game = activeGames[userId];
+  if (!game) return { content: "You don't have an active game. Start one with `/guessgame`." };
+
+  const guess = Number(data.options?.[0]?.value);
+  if (isNaN(guess) || guess < 1 || guess > 100) return { content: "Please provide a valid number between 1 and 100." };
+
+  if (guess === game.number) {
+    delete activeGames[userId];
+    return { content: `🎉 Congratulations! You guessed the number ${guess}!` };
   }
 
-  /**
-   * Handle slash command requests
-   * See https://discord.com/developers/docs/interactions/application-commands#slash-commands
-   */
+  let response = game.previousGuess === null
+    ? "Not quite! Make another guess!"
+    : Math.abs(game.number - guess) < Math.abs(game.number - game.previousGuess)
+      ? "🔥 Hotter! You're getting closer."
+      : "❄️ Colder! You're getting farther away.";
+
+  game.previousGuess = guess;
+  return { content: response };
+}
+
+/**
+ * Interactions endpoint
+ */
+app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
+  const { id, type, data, member } = req.body;
+
+  if (type === InteractionType.PING) return res.send({ type: InteractionResponseType.PONG });
+
   if (type === InteractionType.APPLICATION_COMMAND) {
     const { name } = data;
-
-    // "test" command
-    if (name === 'test') {
-      // Send a message into the channel where command was triggered from
-      return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-          flags: InteractionResponseFlags.IS_COMPONENTS_V2,
-          components: [
-            {
-              type: MessageComponentTypes.TEXT_DISPLAY,
-              // Fetches a random emoji to send from a helper function
-              content: `hello world ${getRandomEmoji()}`
-            }
-          ]
-        },
-      });
-    }
-
-        // "/div" command
-    if (name === 'div') {
-      const result = handleDivCommand(data);
-      return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: result,
-      });
-    }
-
-    if (name === 'multi') {
-      const result = handleMultiCommand(data);
-      return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: result,
-      });
-    }
-
-    if (name === 'add') {
-      const result = handleAddCommand(data);
-      return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: result,
-      });
-    }
-
-    if (name === 'sub') {
-      const result = handleSubCommand(data);
-      return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: result,
-      });
-    }
 
     // "/tictactoe" command
     if (name === 'tictactoe') {
@@ -330,7 +582,215 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         },
       });
     }
-    
+
+    if (name === 'remindme') {
+      const durationInput = getOptionValue(data.options, 'duration');
+      const reminderText = (getOptionValue(data.options, 'message') || '').trim();
+
+      if (!reminderText) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
+            content: 'Please include what to remind you about.',
+          },
+        });
+      }
+
+      const delayMs = parseReminderDuration(durationInput);
+      if (!delayMs) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
+            content: 'I could not understand that duration. Try values like `10m`, `45 seconds`, or `2h 30m`.',
+          },
+        });
+      }
+
+      if (delayMs < MIN_REMINDER_MS) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
+            content: 'Reminders must be at least 10 seconds in the future.',
+          },
+        });
+      }
+
+      if (delayMs > MAX_REMINDER_MS) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
+            content: 'I can only remember things up to 24 hours from now.',
+          },
+        });
+      }
+
+      const appId = process.env.APP_ID;
+      const interactionToken = req.body?.token;
+      const userId = req.body?.member?.user?.id || req.body?.user?.id;
+
+      scheduleReminder({
+        delayMs,
+        reminderText,
+        userId,
+        appId,
+        interactionToken,
+      });
+
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          flags: InteractionResponseFlags.EPHEMERAL,
+          content: `✅ I'll remind you in ${humanizeDuration(delayMs)}.`,
+        },
+      });
+    }
+
+
+    if (name === 'joke') {
+      const result = handleJokeCommand();
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result
+      });
+    }
+
+    if (name === 'quote') {
+      const result = handleQuoteCommand();
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result
+      });
+    }
+
+
+    // "test" command
+    if (name === 'test') {
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          flags: InteractionResponseFlags.IS_COMPONENTS_V2,
+          components: [
+            {
+              type: MessageComponentTypes.TEXT_DISPLAY,
+              content: `hello world ${getRandomEmoji()}`
+            }
+          ]
+        },
+      });
+    }
+
+    // Math commands
+    if (name === 'div') {
+      const result = handleDivCommand(data);
+      return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
+    }
+
+    if (name === 'multi') {
+      const result = handleMultiCommand(data);
+      return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
+    }
+
+    if (name === 'add') {
+      const result = handleAddCommand(data);
+      return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
+    }
+
+    if (name === 'sub') {
+      const result = handleSubCommand(data);
+      return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
+    }
+
+
+    // Combined Math Command
+    if (name === 'math') {
+      const options = data.options;
+
+      const operation = options.find(o => o.name === 'operation').value;
+      const num1 = Number(options.find(o => o.name === 'num1').value);
+      const num2 = Number(options.find(o => o.name === 'num2').value);
+
+      // Convert values back into the format your handlers expect:
+      const fakeData = {
+        options: [
+          { value: num1 },
+          { value: num2 }
+        ]
+      };
+
+      let result;
+
+      switch (operation) {
+        case 'add':
+          result = handleAddCommand(fakeData);
+          break;
+        case 'sub':
+          result = handleSubCommand(fakeData);
+          break;
+        case 'multi':
+          result = handleMultiCommand(fakeData);
+          break;
+        case 'div':
+          result = handleDivCommand(fakeData);
+          break;
+      }
+
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result
+      });
+    }
+
+    // Hotter/Colder game commands
+    if (name === 'guessgame') {
+      const result = handleGuessGameCommand(member.user.id);
+      return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
+    }
+
+    if (name === 'guess') {
+      const result = handleGuessCommand(data, member.user.id);
+      return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
+    }
+
+        // Hotter/Colder game commands
+    if (name === 'guessgame') {
+      const result = handleGuessGameCommand(member.user.id);
+      return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
+    }
+
+    if (name === 'guess') {
+      const result = handleGuessCommand(data, member.user.id);
+      return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
+    }
+
+    // Hangman commands
+    if (name === 'hangman') {
+      const userId =
+        req.body.member?.user?.id ||
+        req.body.user?.id;
+
+      const result = handleHangmanStart(userId);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
+      });
+    }
+
+    if (name === 'hangguess') {
+      const userId =
+        req.body.member?.user?.id ||
+        req.body.user?.id;
+
+      const result = handleHangmanGuess(data, userId);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result,
+      });
+    }
+
     console.error(`unknown command: ${name}`);
     return res.status(400).json({ error: 'unknown command' });
   }
@@ -341,4 +801,5 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
 
 app.listen(PORT, () => {
   console.log('Listening on port', PORT);
-});// Task 3: Addition user story – documented by Shivek Tiwari
+});
+
