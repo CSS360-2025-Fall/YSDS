@@ -1,8 +1,9 @@
+// commands.js
 import 'dotenv/config';
 import { getRPSChoices } from './game.js';
-import { capitalize, InstallGlobalCommands } from './utils.js';
+import { capitalize } from './utils.js';
 
-// Get the game choices from game.js
+// Create choices for /challenge command
 function createCommandChoices() {
   const choices = getRPSChoices();
   const commandChoices = [];
@@ -17,26 +18,13 @@ function createCommandChoices() {
   return commandChoices;
 }
 
-/* ------------------------------
-   Your existing math commands
------------------------------- */
-
+// ➕ Math Commands
 const DIV_COMMAND = {
   name: 'div',
   description: 'Divide two numbers (a ÷ b)',
   options: [
-    {
-      type: 10,
-      name: 'a',
-      description: 'Enter the first number (dividend)',
-      required: true,
-    },
-    {
-      type: 10,
-      name: 'b',
-      description: 'Enter the second number (divisor)',
-      required: true,
-    },
+    { type: 10, name: 'a', description: 'Dividend', required: true },
+    { type: 10, name: 'b', description: 'Divisor', required: true },
   ],
   type: 1,
   integration_types: [0, 1],
@@ -47,18 +35,8 @@ const MULTI_COMMAND = {
   name: 'multi',
   description: 'Multiply two numbers (a * b)',
   options: [
-    {
-      type: 10,
-      name: 'a',
-      description: 'Enter the first number (Multiplicand)',
-      required: true,
-    },
-    {
-      type: 10,
-      name: 'b',
-      description: 'Enter the second number (Multiplier)',
-      required: true,
-    },
+    { type: 10, name: 'a', description: 'Multiplicand', required: true },
+    { type: 10, name: 'b', description: 'Multiplier', required: true },
   ],
   type: 1,
   integration_types: [0, 1],
@@ -69,18 +47,8 @@ const ADD_COMMAND = {
   name: 'add',
   description: 'Add two numbers (a + b)',
   options: [
-    {
-      type: 10,
-      name: 'a',
-      description: 'Enter the first number (Addend)',
-      required: true,
-    },
-    {
-      type: 10,
-      name: 'b',
-      description: 'Enter the second number (Addend)',
-      required: true,
-    },
+    { type: 10, name: 'a', description: 'Addend A', required: true },
+    { type: 10, name: 'b', description: 'Addend B', required: true },
   ],
   type: 1,
   integration_types: [0, 1],
@@ -91,39 +59,27 @@ const SUB_COMMAND = {
   name: 'sub',
   description: 'Subtract two numbers (a - b)',
   options: [
-    {
-      type: 10,
-      name: 'a',
-      description: 'Enter the first number (Subtrahend)',
-      required: true,
-    },
-    {
-      type: 10,
-      name: 'b',
-      description: 'Enter the second number (Minuend)',
-      required: true,
-    },
+    { type: 10, name: 'a', description: 'Value A', required: true },
+    { type: 10, name: 'b', description: 'Value B', required: true },
   ],
   type: 1,
   integration_types: [0, 1],
   contexts: [0, 2],
 };
 
-/* ------------------------------
-   Existing base commands
------------------------------- */
-
+// Test command
 const TEST_COMMAND = {
   name: 'test',
-  description: 'Basic command',
+  description: 'Returns a test emoji.',
   type: 1,
   integration_types: [0, 1],
   contexts: [0, 1, 2],
 };
 
+// RPS challenge
 const CHALLENGE_COMMAND = {
   name: 'challenge',
-  description: 'Challenge to a match of rock paper scissors',
+  description: 'Challenge someone to Rock-Paper-Scissors.',
   options: [
     {
       type: 3,
@@ -138,22 +94,25 @@ const CHALLENGE_COMMAND = {
   contexts: [0, 2],
 };
 
-/* ------------------------------
-   ⭐ NEW: Blackjack command
------------------------------- */
-
+// 🎰 Single player blackjack
 const BLACKJACK_COMMAND = {
   name: 'blackjack',
-  description: 'Play a game of Blackjack!',
+  description: 'Play single-player blackjack!',
   type: 1,
   integration_types: [0, 1],
   contexts: [0, 2],
 };
 
-/* ------------------------------
-   Register all commands
------------------------------- */
+// 🃏 Multiplayer blackjack
+const BLACKJACK_MULTI_COMMAND = {
+  name: 'blackjack_multi',
+  description: 'Play multiplayer blackjack (table lobby).',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
 
+// ALL COMMANDS INSTALLED GLOBALLY
 const ALL_COMMANDS = [
   TEST_COMMAND,
   CHALLENGE_COMMAND,
@@ -161,13 +120,11 @@ const ALL_COMMANDS = [
   MULTI_COMMAND,
   ADD_COMMAND,
   SUB_COMMAND,
-  BLACKJACK_COMMAND, // <-- NEW
+  BLACKJACK_COMMAND,
+  BLACKJACK_MULTI_COMMAND,
 ];
 
-/* ------------------------------
-   Global command installer
------------------------------- */
-
+// ===== INSTALL GLOBAL COMMANDS =====
 (async () => {
   const { DISCORD_TOKEN, APP_ID } = process.env;
 
@@ -186,9 +143,9 @@ const ALL_COMMANDS = [
     method: 'PUT',
     headers: {
       'Authorization': `Bot ${DISCORD_TOKEN}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify(ALL_COMMANDS)
+    body: JSON.stringify(ALL_COMMANDS),
   });
 
   if (!res.ok) {
@@ -200,7 +157,4 @@ const ALL_COMMANDS = [
   const data = await res.json();
   console.log('✅ Installed GLOBAL commands:', data.map(c => c.name));
   process.exit(0);
-})().catch(e => {
-  console.error('❌ Install failed:', e);
-  process.exit(1);
-});
+})();

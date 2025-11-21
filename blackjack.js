@@ -1,5 +1,5 @@
 // blackjack.js
-// Minimal, clean, fully compatible with your existing bot.
+// Fully fixed version to match your updated app.js
 
 function createDeck() {
     const suits = ["Hearts", "Diamonds", "Clubs", "Spades"];
@@ -49,14 +49,8 @@ function handValue(cards) {
 }
 
 function formatCard(c) {
-    const name = {
-        A: "Ace",
-        K: "King",
-        Q: "Queen",
-        J: "Jack",
-    }[c.rank] || c.rank;
-
-    return `${name} of ${c.suit}`;
+    const names = { A: "Ace", K: "King", Q: "Queen", J: "Jack" };
+    return `${names[c.rank] || c.rank} of ${c.suit}`;
 }
 
 function formatHand(cards) {
@@ -96,57 +90,51 @@ function buildButtons(disabled = false) {
         {
             type: 1,
             components: [
-                {
-                    type: 2,
-                    custom_id: "blackjack_hit",
-                    style: 1,
-                    label: "Hit",
-                    disabled,
-                },
-                {
-                    type: 2,
-                    custom_id: "blackjack_stand",
-                    style: 2,
-                    label: "Stand",
-                    disabled,
-                },
-                {
-                    type: 2,
-                    custom_id: "blackjack_double",
-                    style: 3,
-                    label: "Double",
-                    disabled,
-                },
-                {
-                    type: 2,
-                    custom_id: "blackjack_surrender",
-                    style: 4,
-                    label: "Surrender",
-                    disabled,
-                },
+                { type: 2, custom_id: "blackjack_hit", style: 1, label: "Hit", disabled },
+                { type: 2, custom_id: "blackjack_stand", style: 2, label: "Stand", disabled },
+                { type: 2, custom_id: "blackjack_double", style: 3, label: "Double", disabled },
+                { type: 2, custom_id: "blackjack_surrender", style: 4, label: "Surrender", disabled },
             ],
         },
     ];
 }
 
-export function startBlackjack(userId, games) {
+// ✅ FIXED SIGNATURE: now matches your app.js
+export function startBlackjack(games, gameId, userId) {
     const deck = createDeck();
     const player = [draw(deck), draw(deck)];
     const dealer = [draw(deck), draw(deck)];
 
-    games[userId] = { deck, player, dealer, finished: false };
+    // Store game by gameId
+    games[gameId] = {
+        userId,
+        deck,
+        player,
+        dealer,
+        finished: false,
+    };
 
     return {
-        content: buildMessage(games[userId], false),
+        content: buildMessage(games[gameId], false),
         components: buildButtons(false),
     };
 }
 
-export function handleBlackjackAction(userId, action, games) {
-    const game = games[userId];
-    if (!game || game.finished) {
+export function handleBlackjackAction(games, userId, action) {
+    // Find the game for this user
+    const gameId = Object.keys(games).find(id => games[id].userId === userId);
+    const game = games[gameId];
+
+    if (!game) {
         return {
             content: "❌ No active blackjack game. Use `/blackjack` to start one.",
+            components: [],
+        };
+    }
+
+    if (game.finished) {
+        return {
+            content: "❌ This game is already finished. Use `/blackjack` to start another.",
             components: [],
         };
     }
@@ -164,7 +152,6 @@ export function handleBlackjackAction(userId, action, games) {
                 components: buildButtons(true),
             };
         }
-
         return {
             content: buildMessage(game, false),
             components: buildButtons(false),
@@ -173,33 +160,27 @@ export function handleBlackjackAction(userId, action, games) {
 
     if (action === "surrender") {
         game.finished = true;
-        result = "You surrendered. Dealer wins.";
         return {
-            content: buildMessage(game, true, result),
+            content: buildMessage(game, true, "You surrendered. Dealer wins."),
             components: buildButtons(true),
         };
     }
 
-    // Double
     if (action === "double") {
         game.player.push(draw(deck));
         game.finished = true;
-        return finishDealer(game, "You doubled!", games, userId);
+        return finishDealer(game);
     }
 
-    // Stand
     if (action === "stand") {
         game.finished = true;
-        return finishDealer(game, "", games, userId);
+        return finishDealer(game);
     }
 
-    return {
-        content: "Unknown action.",
-        components: [],
-    };
+    return { content: "Unknown action.", components: [] };
 }
 
-function finishDealer(game, prefix, games, userId) {
+function finishDealer(game) {
     while (handValue(game.dealer) < 17) {
         game.dealer.push(draw(game.deck));
     }
@@ -207,12 +188,12 @@ function finishDealer(game, prefix, games, userId) {
     const playerTotal = handValue(game.player);
     const dealerTotal = handValue(game.dealer);
 
-    let result = prefix + "\n\n";
+    let result = "";
 
-    if (dealerTotal > 21) result += "Dealer busted! You win.";
-    else if (playerTotal > dealerTotal) result += "You win!";
-    else if (playerTotal < dealerTotal) result += "Dealer wins!";
-    else result += "It's a tie!";
+    if (dealerTotal > 21) result = "Dealer busted! You win!";
+    else if (playerTotal > dealerTotal) result = "You win!";
+    else if (playerTotal < dealerTotal) result = "Dealer wins!";
+    else result = "It's a tie!";
 
     return {
         content: buildMessage(game, true, result),
