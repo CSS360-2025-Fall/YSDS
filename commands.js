@@ -204,7 +204,10 @@ const QUOTE_COMMAND = {
   contexts: [0, 2],
 };
 
+<<<<<<< HEAD
 // Math command
+=======
+>>>>>>> 693dfd5 (Push to branch (best ver rn))
 const MATH_COMMAND = {
   name: 'math',
   description: 'Perform a math operation',
@@ -242,10 +245,14 @@ const MATH_COMMAND = {
 
 // Add it to the list of commands you register
 <<<<<<< HEAD
+<<<<<<< HEAD
 const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND,GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, MATH_COMMAND];
 =======
 const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND, GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, TICTACTOE_COMMAND, REMIND_COMMAND];
 >>>>>>> 8dc174dd878d7c243d2efb6491887792f1468a36
+=======
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND, GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, TICTACTOE_COMMAND, REMIND_COMMAND, MATH_COMMAND];
+>>>>>>> 693dfd5 (Push to branch (best ver rn))
 // Add it at the bottom of commands.js
 // ===== GLOBAL COMMAND INSTALL =====
 import 'dotenv/config';
