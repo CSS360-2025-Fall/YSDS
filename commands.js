@@ -204,10 +204,30 @@ const QUOTE_COMMAND = {
   contexts: [0, 2],
 };
 
-<<<<<<< HEAD
-// Math command
-=======
->>>>>>> 693dfd5 (Push to branch (best ver rn))
+const HANGMAN_COMMAND = {
+  name: 'hangman',
+  description: 'Start a new text-based Hangman game',
+  type: 1, // CHAT_INPUT
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const HANGGUESS_COMMAND = {
+  name: 'hangguess',
+  description: 'Guess a letter in your active Hangman game',
+  options: [
+    {
+      type: 3, // STRING
+      name: 'letter',
+      description: 'Your letter guess (a-z)',
+      required: true,
+    },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
 const MATH_COMMAND = {
   name: 'math',
   description: 'Perform a math operation',
@@ -242,17 +262,61 @@ const MATH_COMMAND = {
   ],
 };
 
+// 🎰 Single player blackjack
+const BLACKJACK_COMMAND = {
+  name: 'blackjack',
+  description: 'Play single-player blackjack!',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+// 🃏 Multiplayer blackjack
+const BLACKJACK_MULTI_COMMAND = {
+  name: 'blackjack_multi',
+  description: 'Play multiplayer blackjack (table lobby).',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const SIMON_COMMAND = {
+  name: 'simon',
+  description: 'Start a Simon Says memory challenge',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const SIMON_GUESS_COMMAND = {
+  name: 'sg',
+  description: 'Submit your guess for the Simon Says sequence',
+  options: [
+    {
+      type: 3, // STRING
+      name: 'sequence',
+      description: 'Enter the memorized numbers (e.g., 3 5 7 or 357)',
+      required: true,
+    },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+const SIMON_LEADERBOARD_COMMAND = {
+  name: 'slb',
+  description: 'View the Simon Says leaderboard',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
 
 // Add it to the list of commands you register
-<<<<<<< HEAD
-<<<<<<< HEAD
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND,GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, MATH_COMMAND];
-=======
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND, GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, TICTACTOE_COMMAND, REMIND_COMMAND];
->>>>>>> 8dc174dd878d7c243d2efb6491887792f1468a36
-=======
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND, GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, TICTACTOE_COMMAND, REMIND_COMMAND, MATH_COMMAND];
->>>>>>> 693dfd5 (Push to branch (best ver rn))
+
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND, GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, TICTACTOE_COMMAND, REMIND_COMMAND, MATH_COMMAND, HANGMAN_COMMAND, HANGGUESS_COMMAND, BLACKJACK_COMMAND, BLACKJACK_MULTI_COMMAND, SIMON_COMMAND, SIMON_GUESS_COMMAND, SIMON_LEADERBOARD_COMMAND];
+
 // Add it at the bottom of commands.js
 // ===== GLOBAL COMMAND INSTALL =====
 import 'dotenv/config';
