@@ -1,5 +1,4 @@
 // blackjack.js
-// Fully fixed version to match your updated app.js
 
 function createDeck() {
     const suits = ["Hearts", "Diamonds", "Clubs", "Spades"];
@@ -12,7 +11,6 @@ function createDeck() {
         }
     }
 
-    // Shuffle
     for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -99,13 +97,12 @@ function buildButtons(disabled = false) {
     ];
 }
 
-// ✅ FIXED SIGNATURE: now matches your app.js
+// FIXED: use userId directly as gameId
 export function startBlackjack(games, gameId, userId) {
     const deck = createDeck();
     const player = [draw(deck), draw(deck)];
     const dealer = [draw(deck), draw(deck)];
 
-    // Store game by gameId
     games[gameId] = {
         userId,
         deck,
@@ -120,9 +117,9 @@ export function startBlackjack(games, gameId, userId) {
     };
 }
 
+// FIXED: lookup game by userId ONLY
 export function handleBlackjackAction(games, userId, action) {
-    // Find the game for this user
-    const gameId = Object.keys(games).find(id => games[id].userId === userId);
+    const gameId = userId;
     const game = games[gameId];
 
     if (!game) {
