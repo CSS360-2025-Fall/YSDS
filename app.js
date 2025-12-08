@@ -305,6 +305,7 @@ function handleHangmanStart(userId) {
   hangmanGames[userId] = game;
 
   return {
+    flags: InteractionResponseFlags.EPHEMERAL,
     content:
       '🎮 New Hangman game started!\n' +
       renderHangmanState(game) +
@@ -316,6 +317,7 @@ function handleHangmanGuess(data, userId) {
   const game = hangmanGames[userId];
   if (!game) {
     return {
+      flags: InteractionResponseFlags.EPHEMERAL,
       content:
         "❌ You don't have an active Hangman game. Start one with `/hangman`.",
     };
@@ -326,6 +328,7 @@ function handleHangmanGuess(data, userId) {
 
   if (!raw || !/[a-z]/.test(raw[0])) {
     return {
+      flags: InteractionResponseFlags.EPHEMERAL,
       content: '❌ Please provide a single letter (a–z).',
     };
   }
@@ -334,6 +337,7 @@ function handleHangmanGuess(data, userId) {
 
   if (game.guessedLetters.has(letter)) {
     return {
+      flags: InteractionResponseFlags.EPHEMERAL,
       content:
         `⚠️ You already guessed **${letter}**.\n` +
         renderHangmanState(game),
@@ -353,6 +357,7 @@ function handleHangmanGuess(data, userId) {
       const masked = formatMaskedWord(game.word, game.guessedLetters);
       delete hangmanGames[userId];
       return {
+        flags: InteractionResponseFlags.EPHEMERAL,
         content:
           '🎉 You guessed the word!\n' +
           '```text\n' +
@@ -362,6 +367,7 @@ function handleHangmanGuess(data, userId) {
     }
 
     return {
+      flags: InteractionResponseFlags.EPHEMERAL,
       content:
         `✅ Good guess! **${letter}** is in the word.\n` +
         renderHangmanState(game),
@@ -373,6 +379,7 @@ function handleHangmanGuess(data, userId) {
       const answer = game.word;
       delete hangmanGames[userId];
       return {
+        flags: InteractionResponseFlags.EPHEMERAL,
         content:
           '💀 No lives left. Game over!\n' +
           `The word was: **${answer}**`,
@@ -380,6 +387,7 @@ function handleHangmanGuess(data, userId) {
     }
 
     return {
+      flags: InteractionResponseFlags.EPHEMERAL,
       content:
         `❌ Nope, **${letter}** is not in the word.\n` +
         renderHangmanState(game),
@@ -915,6 +923,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         return res.send({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
             content: '❌ Please choose a position from **1** to **9**.',
           },
         });
@@ -929,6 +938,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         return res.send({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
             content: '❌ Could not identify user for this game.',
           },
         });
@@ -945,6 +955,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         return res.send({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
             content:
               'That spot is already taken.\n' +
               renderBoard(board),
@@ -961,6 +972,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         return res.send({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
             content:
               `You placed **X** at position **${position}**.\n` +
               renderBoard(board) +
@@ -975,6 +987,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         return res.send({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
             content:
               `You placed **X** at position **${position}**.\n` +
               renderBoard(board) +
@@ -990,6 +1003,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         return res.send({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
             content:
               `You placed **X** at position **${position}**.\n` +
               renderBoard(board) +
@@ -1007,6 +1021,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         return res.send({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
             content:
               `You placed **X** at position **${position}**.\n` +
               `I placed **O** at position **${botPos}**.\n` +
@@ -1022,6 +1037,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         return res.send({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
+            flags: InteractionResponseFlags.EPHEMERAL,
             content:
               `You placed **X** at position **${position}**.\n` +
               `I placed **O** at position **${botPos}**.\n` +
@@ -1037,6 +1053,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
+          flags: InteractionResponseFlags.EPHEMERAL,
           content:
             `You placed **X** at position **${position}**.\n` +
             `I placed **O** at position **${botPos}**.\n` +
