@@ -515,11 +515,11 @@ function handleDivCommand(data) {
   const num2 = Number(data.options?.[1]?.value || 1);
 
   if (num2 === 0) {
-    return { content: "❌ Cannot divide by zero!" };
+    return { flags: InteractionResponseFlags.EPHEMERAL, content: "❌ Cannot divide by zero!" };
   }
 
   const result = num1 / num2;
-  return { content: `✅ The result of ${num1} ÷ ${num2} is **${result}**` };
+  return { flags: InteractionResponseFlags.EPHEMERAL, content: `✅ The result of ${num1} ÷ ${num2} is **${result}**` };
 }
 
 function handleMultiCommand(data) {
@@ -527,11 +527,11 @@ function handleMultiCommand(data) {
   const num2 = Number(data.options?.[1]?.value || 1);
 
   if (num2 === 0 || num1 === 0) {
-    return { content: `✅ The result of ${num1} * ${num2} is **0**` };
+    return { flags: InteractionResponseFlags.EPHEMERAL, content: `✅ The result of ${num1} * ${num2} is **0**` };
   }
 
   const result = num1 * num2;
-  return { content: `✅ The result of ${num1} * ${num2} is **${result}**` };
+  return { flags: InteractionResponseFlags.EPHEMERAL, content: `✅ The result of ${num1} * ${num2} is **${result}**` };
 }
 
 function handleAddCommand(data) {
@@ -539,7 +539,7 @@ function handleAddCommand(data) {
   const num2 = Number(data.options?.[1]?.value || 1);
 
   const result = num1 + num2;
-  return { content: `✅ The result of ${num1} + ${num2} is **${result}**` };
+  return { flags: InteractionResponseFlags.EPHEMERAL, content: `✅ The result of ${num1} + ${num2} is **${result}**` };
 }
 
 function handleSubCommand(data) {
@@ -547,7 +547,7 @@ function handleSubCommand(data) {
   const num2 = Number(data.options?.[1]?.value || 1);
 
   const result = num1 - num2;
-  return { content: `✅ The result of ${num1} - ${num2} is **${result}**` };
+  return { flags: InteractionResponseFlags.EPHEMERAL, content: `✅ The result of ${num1} - ${num2} is **${result}**` };
 }
 
 const tttGames = {}; // key: userId, value: 9-element array board
