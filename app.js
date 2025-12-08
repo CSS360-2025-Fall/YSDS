@@ -480,6 +480,26 @@ function scheduleReminder({ delayMs, reminderText, userId, appId, interactionTok
   }, delayMs);
 }
 
+const HELP_ENTRIES = [
+  { name: 'help', description: 'Show available commands or details for one command.' },
+  { name: 'tictactoe', description: 'Play tic tac toe vs the bot. Use /tictactoe position:<1-9> to make moves.' },
+  { name: 'hangman', description: 'Start a text Hangman game. Guess letters with /hangguess letter:<a-z>.' },
+  { name: 'guessgame', description: 'Start a Hotter/Colder number guessing game with /guessgame, guess with /guess number:<1-100>.' },
+  { name: 'joke', description: 'Get a random joke.' },
+  { name: 'quote', description: 'Get a random inspirational or funny quote.' },
+  { name: 'remindme', description: 'Set a reminder, e.g. /remindme duration:10m message:Take a break.' },
+  { name: 'math', description: 'Math helper: add/subtract/multiply/divide two numbers.' },
+  { name: 'blackjack', description: 'Play single-player blackjack.' },
+  { name: 'blackjack_multi', description: 'Create/join a multiplayer blackjack table.' },
+  { name: 'simon', description: 'Start a Simon Says memory challenge. Submit with /sg, view top scores with /slb.' },
+];
+
+function getHelpEntry(commandName) {
+  const target = (commandName || '').toLowerCase().trim();
+  if (!target) return null;
+  return HELP_ENTRIES.find(entry => entry.name.toLowerCase() === target) || null;
+}
+
 // Create an express app
 const app = express();
 // Get port, or default to 3000
@@ -655,6 +675,27 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
 
 
     const { name } = data;
+
+    if (name === 'help') {
+      const specific = getOptionValue(data.options, 'command');
+      const entry = getHelpEntry(specific);
+
+      const content = entry
+        ? `**/${entry.name}**\n${entry.description}`
+        : [
+            '🤖 **Available commands**',
+            HELP_ENTRIES.map(e => `• **/${e.name}** — ${e.description}`).join('\n'),
+            'Use `/help command:<name>` for details on one command.',
+          ].join('\n');
+
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          flags: InteractionResponseFlags.EPHEMERAL,
+          content,
+        },
+      });
+    }
 
     if (name === 'math') {
 

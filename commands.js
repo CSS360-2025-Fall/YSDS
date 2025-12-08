@@ -312,10 +312,27 @@ const SIMON_LEADERBOARD_COMMAND = {
   contexts: [0, 2],
 };
 
+const HELP_COMMAND = {
+  name: 'help',
+  description: 'Show available commands or details for one command',
+  options: [
+    {
+      type: 3, // STRING
+      name: 'command',
+      description: 'Optional command name for detailed help',
+      required: false,
+    },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
+
 
 // Add it to the list of commands you register
 
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND, GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, TICTACTOE_COMMAND, REMIND_COMMAND, MATH_COMMAND, HANGMAN_COMMAND, HANGGUESS_COMMAND, BLACKJACK_COMMAND, BLACKJACK_MULTI_COMMAND, SIMON_COMMAND, SIMON_GUESS_COMMAND, SIMON_LEADERBOARD_COMMAND];
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND, GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, TICTACTOE_COMMAND, REMIND_COMMAND, MATH_COMMAND, HANGMAN_COMMAND, HANGGUESS_COMMAND, BLACKJACK_COMMAND, BLACKJACK_MULTI_COMMAND, SIMON_COMMAND, SIMON_GUESS_COMMAND, SIMON_LEADERBOARD_COMMAND, HELP_COMMAND];
 
 // Add it at the bottom of commands.js
 // ===== GLOBAL COMMAND INSTALL =====
@@ -357,4 +374,3 @@ import 'dotenv/config';
   console.error('❌ Install failed:', e);
   process.exit(1);
 });
-
