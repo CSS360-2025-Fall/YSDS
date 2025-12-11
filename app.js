@@ -11,6 +11,8 @@ import {
 import { getRandomEmoji, DiscordRequest } from './utils.js';
 import { getShuffledOptions, getResult } from './game.js';
 import { startBlackjack, handleBlackjackAction } from './blackjack.js';
+import { startGuessGame, handleGuess } from './guess.js';
+
 
 // 🔹 Multiplayer blackjack imports
 import {
@@ -484,7 +486,6 @@ const HELP_ENTRIES = [
   { name: 'help', description: 'Show available commands or details for one command.' },
   { name: 'tictactoe', description: 'Play tic tac toe vs the bot. Use /tictactoe position:<1-9> to make moves.' },
   { name: 'hangman', description: 'Start a text Hangman game. Guess letters with /hangguess letter:<a-z>.' },
-  { name: 'guessgame', description: 'Start a Hotter/Colder number guessing game with /guessgame, guess with /guess number:<1-100>.' },
   { name: 'joke', description: 'Get a random joke.' },
   { name: 'quote', description: 'Get a random inspirational or funny quote.' },
   { name: 'remindme', description: 'Set a reminder, e.g. /remindme duration:10m message:Take a break.' },
@@ -599,14 +600,6 @@ function getBotMoveIndex(board) {
 /**
  * Hotter/Colder game handlers
  */
-function handleGuessGameCommand(userId) {
-  if (!activeGames[userId]) {
-    activeGames[userId] = { number: Math.floor(Math.random() * 100) + 1, previousGuess: null };
-    return { content: "🎲 I picked a number between 1 and 100! Make a guess using `/guess <number>`." };
-  } else {
-    return { content: "You already have an ongoing game! Use `/guess <number>` to continue." };
-  }
-}
 
 // Joke handler
 function handleJokeCommand() {
@@ -634,28 +627,6 @@ function handleQuoteCommand() {
   return { content: quotes[Math.floor(Math.random() * quotes.length)] };
 }
 
-
-function handleGuessCommand(data, userId) {
-  const game = activeGames[userId];
-  if (!game) return { content: "You don't have an active game. Start one with `/guessgame`." };
-
-  const guess = Number(data.options?.[0]?.value);
-  if (isNaN(guess) || guess < 1 || guess > 100) return { content: "Please provide a valid number between 1 and 100." };
-
-  if (guess === game.number) {
-    delete activeGames[userId];
-    return { content: `🎉 Congratulations! You guessed the number ${guess}!` };
-  }
-
-  let response = game.previousGuess === null
-    ? "Not quite! Make another guess!"
-    : Math.abs(game.number - guess) < Math.abs(game.number - game.previousGuess)
-      ? "🔥 Hotter! You're getting closer."
-      : "❄️ Colder! You're getting farther away.";
-
-  game.previousGuess = guess;
-  return { content: response };
-}
 
 /**
  * Interactions endpoint
@@ -1292,14 +1263,14 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
 
     // Hotter/Colder game commands
     if (name === 'guessgame') {
-      const result = handleGuessGameCommand(member.user.id);
-      return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
+      return res.send(startGuessGame(userId));
     }
 
     if (name === 'guess') {
-      const result = handleGuessCommand(data, member.user.id);
-      return res.send({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: result });
+      const number = getOptionValue(options, 'number');
+      return res.send(handleGuess(userId, number));
     }
+
 
     console.error(`unknown command: ${name}`);
     return res.status(400).json({ error: 'unknown command' });
