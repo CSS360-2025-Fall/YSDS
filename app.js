@@ -12,7 +12,31 @@ import { getRandomEmoji, DiscordRequest } from './utils.js';
 import { getShuffledOptions, getResult } from './game.js';
 import { startBlackjack, handleBlackjackAction } from './blackjack.js';
 import { startGuessGame, handleGuess } from './guess.js';
-
+import { startTicTacToe, handleTicTacToeMove } from './tictactoe.js';
+import {
+  MIN_REMINDER_MS,
+  MAX_REMINDER_MS,
+  simonGames,
+  simonRecords,
+  getSimonDisplayName,
+  generateSimonSequence,
+  normalizeSimonGuess,
+  updateSimonRecord,
+  clearSimonTimers,
+  deleteSimonSequenceMessage,
+  sendSimonFollowUp,
+  sendSimonSequence,
+  finalizeSimonGame,
+  abortSimonGame,
+  handleSimonTimeout,
+  getSimonViewDurationMs,
+  getSimonResponseDurationMs
+} from './simon.js';
+import {
+  hangmanGames,
+  startHangmanGame,
+  handleHangmanGuess
+} from './hangman.js';
 
 // 🔹 Multiplayer blackjack imports
 import {
@@ -24,378 +48,10 @@ import {
 const blackjackGames = {};          // single-player games
 const blackjackMultiTables = {};    // multiplayer tables
 
-const MIN_REMINDER_MS = 10 * 1000; // keep reminders reasonable (>10s)
-const MAX_REMINDER_MS = 24 * 60 * 60 * 1000; // cap at 24h to avoid runaway timers
-const SIMON_VIEW_BASE_MS = 5 * 1000;
-const SIMON_VIEW_INCREMENT_MS = 1000;
-const SIMON_RESPONSE_BASE_MS = 10 * 1000;
-const SIMON_RESPONSE_INCREMENT_MS = 1500;
-const simonGames = new Map();
-const simonRecords = new Map();
 
-
-function getSimonDisplayName(body) {
-  return (
-    body?.member?.nick ||
-    body?.member?.user?.global_name ||
-    body?.member?.user?.username ||
-    body?.user?.global_name ||
-    body?.user?.username ||
-    'Player'
-  );
-}
-
-function getSimonViewDurationMs(level) {
-  return SIMON_VIEW_BASE_MS + Math.max(0, level - 1) * SIMON_VIEW_INCREMENT_MS;
-}
-
-function getSimonResponseDurationMs(level) {
-  return SIMON_RESPONSE_BASE_MS + Math.max(0, level - 1) * SIMON_RESPONSE_INCREMENT_MS;
-}
-
-function generateSimonSequence(level) {
-  const length = Math.max(2, level + 1);
-  return Array.from({ length }, () => Math.floor(Math.random() * 10));
-}
-
-function normalizeSimonGuess(rawInput) {
-  if (!rawInput || typeof rawInput !== 'string') {
-    return null;
-  }
-  const compact = rawInput.replace(/\s+/g, '');
-  if (!/^[0-9]+$/.test(compact)) {
-    return null;
-  }
-  return compact;
-}
-
-function updateSimonRecord(userId, completedLevel, displayName) {
-  const safeLevel = Math.max(0, completedLevel);
-  const existing = simonRecords.get(userId);
-  const previousBest = existing?.bestLevel ?? 0;
-  const newBest = Math.max(previousBest, safeLevel);
-  const record = {
-    bestLevel: newBest,
-    displayName: displayName || existing?.displayName || `Player ${userId}`,
-  };
-  simonRecords.set(userId, record);
-  return {
-    previousBest,
-    bestLevel: newBest,
-    isNewRecord: newBest > previousBest,
-  };
-}
-
-function clearSimonTimers(game) {
-  if (!game) return;
-  if (game.hideTimeout) {
-    clearTimeout(game.hideTimeout);
-    game.hideTimeout = null;
-  }
-  if (game.responseTimeout) {
-    clearTimeout(game.responseTimeout);
-    game.responseTimeout = null;
-  }
-}
-
-async function deleteSimonSequenceMessage(game) {
-  if (!game?.sequenceMessage || !game?.appId) {
-    return;
-  }
-  try {
-    await DiscordRequest(`webhooks/${game.appId}/${game.sequenceMessage.token}/messages/${game.sequenceMessage.id}`, {
-      method: 'DELETE',
-    });
-  } catch (error) {
-    console.error('Failed to delete Simon sequence message', error);
-  } finally {
-    game.sequenceMessage = null;
-  }
-}
-
-async function sendSimonFollowUp(game, content) {
-  if (!game?.appId || !game?.latestToken || !content) {
-    return;
-  }
-  try {
-    await DiscordRequest(`webhooks/${game.appId}/${game.latestToken}`, {
-      method: 'POST',
-      body: {
-        content,
-        flags: InteractionResponseFlags.EPHEMERAL,
-      },
-    });
-  } catch (error) {
-    console.error('Failed to send Simon follow-up', error);
-  }
-}
-
-async function hideSimonSequence(game) {
-  if (!game) return;
-  game.hideTimeout = null;
-  await deleteSimonSequenceMessage(game);
-  const remainingMs = Math.max(0, (game.responseDeadline || Date.now()) - Date.now());
-  if (remainingMs <= 0) {
-    return;
-  }
-  const secondsLeft = (remainingMs / 1000).toFixed(1).replace(/\.0$/, '');
-  await sendSimonFollowUp(game, `🙈 Sequence hidden! You have ${secondsLeft}s left to respond with /sg.`);
-}
-
-async function sendSimonSequence(game) {
-  if (!game?.appId || !game?.latestToken) {
-    console.error('Cannot send Simon sequence without app ID or interaction token');
-    return;
-  }
-  const viewDurationMs = getSimonViewDurationMs(game.level);
-  const responseDurationMs = getSimonResponseDurationMs(game.level);
-  const sequenceText = game.sequence.join(' ');
-  const viewSeconds = (viewDurationMs / 1000).toFixed(0);
-  const answerSeconds = (responseDurationMs / 1000).toFixed(1).replace(/\.0$/, '');
-
-  try {
-    const response = await DiscordRequest(`webhooks/${game.appId}/${game.latestToken}`, {
-      method: 'POST',
-      body: {
-        content: [
-          `🔢 **Simon Says — Level ${game.level}**`,
-          `Sequence: \`${sequenceText}\``,
-          `View time: ${viewSeconds}s · Answer time: ${answerSeconds}s`,
-          'Respond with /sg when ready.',
-        ].join('\n'),
-        flags: InteractionResponseFlags.EPHEMERAL,
-      },
-    });
-    const data = await response.json();
-    if (data?.id) {
-      game.sequenceMessage = { id: data.id, token: game.latestToken };
-    } else {
-      game.sequenceMessage = null;
-    }
-    clearSimonTimers(game);
-    game.hideTimeout = setTimeout(() => {
-      hideSimonSequence(game).catch(error => console.error('Failed to hide Simon sequence', error));
-    }, viewDurationMs);
-    game.responseDeadline = Date.now() + responseDurationMs;
-    game.responseTimeout = setTimeout(() => {
-      handleSimonTimeout(game.userId).catch(error => console.error('Simon timeout failed', error));
-    }, responseDurationMs);
-  } catch (error) {
-    console.error('Failed to send Simon sequence', error);
-  }
-}
-
-async function finalizeSimonGame(game, completedLevel) {
-  const safeLevel = Math.max(0, completedLevel);
-  const record = updateSimonRecord(game.userId, safeLevel, game.displayName);
-  clearSimonTimers(game);
-  await deleteSimonSequenceMessage(game);
-  simonGames.delete(game.userId);
-  return { record, completedLevel: safeLevel };
-}
-
-async function abortSimonGame(userId) {
-  const existing = simonGames.get(userId);
-  if (!existing) {
-    return;
-  }
-  clearSimonTimers(existing);
-  await deleteSimonSequenceMessage(existing);
-  simonGames.delete(userId);
-}
-
-async function handleSimonTimeout(userId) {
-  const game = simonGames.get(userId);
-  if (!game) {
-    return;
-  }
-  const { record, completedLevel } = await finalizeSimonGame(game, Math.max(game.level - 1, 0));
-  const parts = [`⌛ Time's up! You reached level ${completedLevel}.`];
-  if (record.isNewRecord && completedLevel > 0) {
-    parts.push('🎉 New personal best!');
-  } else if (record.bestLevel) {
-    parts.push(`Best level: ${record.bestLevel}.`);
-  }
-  await sendSimonFollowUp(game, parts.join(' '));
-}
 /**
  * Hangman game handlers
  */
-const hangmanGames = {};
-
-const HANGMAN_WORDS = [
-  'discord',
-  'bot',
-  'javascript',
-  'uwbothell',
-  'software',
-  'hangman',
-  'college',
-  'computer',
-  'coding',
-  'quality',
-  'algorithm',
-  'binary',
-  'pointer',
-  'compiler',
-  'runtime',
-  'recursion',
-  'hashing',
-  'dataset',
-  'variable',
-  'function',
-  'boolean',
-  'array',
-  'linkedlist',
-  'database',
-  'network',
-  'latency',
-  'server',
-  'client',
-  'protocol',
-  'command',
-  'syntax',
-  'debug',
-  'vscode',
-  'project',
-  'midterm',
-  'lecture',
-  'robotics',
-  'kernel',
-  'sandbox',
-  'pipeline'
-];
-
-function pickRandomWord() {
-  const idx = Math.floor(Math.random() * HANGMAN_WORDS.length);
-  return HANGMAN_WORDS[idx].toLowerCase();
-}
-
-function formatMaskedWord(word, guessedLetters) {
-  const letters = word.split('').map(ch => {
-    if (!/[a-z]/.test(ch)) return ch; // non-letters as-is
-    return guessedLetters.has(ch) ? ch : '_';
-  });
-  return letters.join(' ');
-}
-
-function formatGuessedLetters(guessedLetters) {
-  if (!guessedLetters.size) return '(none)';
-  return Array.from(guessedLetters).sort().join(', ');
-}
-
-function renderHangmanState(game) {
-  const masked = formatMaskedWord(game.word, game.guessedLetters);
-  const guessed = formatGuessedLetters(game.guessedLetters);
-  return (
-    '```text\n' +
-    `Word:   ${masked}\n` +
-    `Guessed: ${guessed}\n` +
-    `Lives:  ${game.livesLeft}/${game.maxLives}\n` +
-    '```'
-  );
-}
-
-function handleHangmanStart(userId) {
-  const word = pickRandomWord();
-  const game = {
-    word,
-    guessedLetters: new Set(),
-    livesLeft: 6,
-    maxLives: 6,
-  };
-  hangmanGames[userId] = game;
-
-  return {
-    flags: InteractionResponseFlags.EPHEMERAL,
-    content:
-      '🎮 New Hangman game started!\n' +
-      renderHangmanState(game) +
-      '\nGuess a letter with `/hangguess letter:<a-z>`.',
-  };
-}
-
-function handleHangmanGuess(data, userId) {
-  const game = hangmanGames[userId];
-  if (!game) {
-    return {
-      flags: InteractionResponseFlags.EPHEMERAL,
-      content:
-        "❌ You don't have an active Hangman game. Start one with `/hangman`.",
-    };
-  }
-
-  const letterOption = data.options?.find(o => o.name === 'letter');
-  let raw = String(letterOption?.value || '').toLowerCase().trim();
-
-  if (!raw || !/[a-z]/.test(raw[0])) {
-    return {
-      flags: InteractionResponseFlags.EPHEMERAL,
-      content: '❌ Please provide a single letter (a–z).',
-    };
-  }
-
-  const letter = raw[0];
-
-  if (game.guessedLetters.has(letter)) {
-    return {
-      flags: InteractionResponseFlags.EPHEMERAL,
-      content:
-        `⚠️ You already guessed **${letter}**.\n` +
-        renderHangmanState(game),
-    };
-  }
-
-  game.guessedLetters.add(letter);
-
-  if (game.word.includes(letter)) {
-    // Check win: all letters in the word have been guessed
-    const allGuessed = game.word
-      .split('')
-      .filter(ch => /[a-z]/.test(ch))
-      .every(ch => game.guessedLetters.has(ch));
-
-    if (allGuessed) {
-      const masked = formatMaskedWord(game.word, game.guessedLetters);
-      delete hangmanGames[userId];
-      return {
-        flags: InteractionResponseFlags.EPHEMERAL,
-        content:
-          '🎉 You guessed the word!\n' +
-          '```text\n' +
-          `Word:   ${masked}\n` +
-          '```',
-      };
-    }
-
-    return {
-      flags: InteractionResponseFlags.EPHEMERAL,
-      content:
-        `✅ Good guess! **${letter}** is in the word.\n` +
-        renderHangmanState(game),
-    };
-  } else {
-    game.livesLeft -= 1;
-
-    if (game.livesLeft <= 0) {
-      const answer = game.word;
-      delete hangmanGames[userId];
-      return {
-        flags: InteractionResponseFlags.EPHEMERAL,
-        content:
-          '💀 No lives left. Game over!\n' +
-          `The word was: **${answer}**`,
-      };
-    }
-
-    return {
-      flags: InteractionResponseFlags.EPHEMERAL,
-      content:
-        `❌ Nope, **${letter}** is not in the word.\n` +
-        renderHangmanState(game),
-    };
-  }
-}
 
 function getOptionValue(options = [], optionName) {
   return options.find(option => option.name === optionName)?.value;
@@ -486,6 +142,7 @@ const HELP_ENTRIES = [
   { name: 'help', description: 'Show available commands or details for one command.' },
   { name: 'tictactoe', description: 'Play tic tac toe vs the bot. Use /tictactoe position:<1-9> to make moves.' },
   { name: 'hangman', description: 'Start a text Hangman game. Guess letters with /hangguess letter:<a-z>.' },
+  { name: 'guessgame', description: 'are you good at guessing come find out'},
   { name: 'joke', description: 'Get a random joke.' },
   { name: 'quote', description: 'Get a random inspirational or funny quote.' },
   { name: 'remindme', description: 'Set a reminder, e.g. /remindme duration:10m message:Take a break.' },
@@ -506,7 +163,6 @@ const app = express();
 // Get port, or default to 3000
 const PORT = process.env.PORT || 3000;
 // To keep track of our active games
-const activeGames = {};
 
 /**
  * Math command handlers
@@ -551,51 +207,6 @@ function handleSubCommand(data) {
   return { flags: InteractionResponseFlags.EPHEMERAL, content: `✅ The result of ${num1} - ${num2} is **${result}**` };
 }
 
-const tttGames = {}; // key: userId, value: 9-element array board
-
-function newBoard() {
-  return Array(9).fill(null);
-}
-
-function renderBoard(board) {
-  const display = board.map((cell, i) => (cell ? cell : (i + 1)));
-  return (
-    '```text\n' +
-    `${display[0]} | ${display[1]} | ${display[2]}\n` +
-    '---------\n' +
-    `${display[3]} | ${display[4]} | ${display[5]}\n` +
-    '---------\n' +
-    `${display[6]} | ${display[7]} | ${display[8]}\n` +
-    '```'
-  );
-}
-
-const WIN_LINES = [
-  [0, 1, 2],
-  [3, 4, 5],
-  [6, 7, 8],
-  [0, 3, 6],
-  [1, 4, 7],
-  [2, 5, 8],
-  [0, 4, 8],
-  [2, 4, 6],
-];
-
-function checkWinner(board, symbol) {
-  return WIN_LINES.some(([a, b, c]) => (
-    board[a] === symbol && board[b] === symbol && board[c] === symbol
-  ));
-}
-
-function getBotMoveIndex(board) {
-  const empty = [];
-  for (let i = 0; i < board.length; i++) {
-    if (board[i] === null) empty.push(i);
-  }
-  if (empty.length === 0) return null;
-  const randomIndex = Math.floor(Math.random() * empty.length);
-  return empty[randomIndex];
-}
 
 /**
  * Hotter/Colder game handlers
@@ -924,27 +535,9 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
     }
 
     // "/tictactoe" command
+
     if (name === 'tictactoe') {
-      // Get the position option (1-9)
-      const positionOption = data.options?.find(
-        (opt) => opt.name === 'position'
-      );
-      const position = Number(positionOption?.value);
-
-      if (!Number.isInteger(position) || position < 1 || position > 9) {
-        return res.send({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            flags: InteractionResponseFlags.EPHEMERAL,
-            content: '❌ Please choose a position from **1** to **9**.',
-          },
-        });
-      }
-
-      // Identify user (works in guilds + DMs)
-      const userId =
-        req.body.member?.user?.id ||
-        req.body.user?.id;
+      const userId = req.body.member?.user?.id || req.body.user?.id;
 
       if (!userId) {
         return res.send({
@@ -956,122 +549,23 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         });
       }
 
-      // Load existing board or start a new one
-      let board = tttGames[userId];
-      if (!board) board = newBoard();
+      const positionOption = data.options?.find(opt => opt.name === 'position');
+      const position = positionOption?.value;
 
-      const index = position - 1;
-
-      // If the cell is taken, don't let the user overwrite it
-      if (board[index] !== null) {
+      // If no position provided, start a new game
+      if (!position) {
+        const result = startTicTacToe(userId);
         return res.send({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            flags: InteractionResponseFlags.EPHEMERAL,
-            content:
-              'That spot is already taken.\n' +
-              renderBoard(board),
-          },
+          data: result,
         });
       }
 
-      // Player move: X
-      board[index] = 'X';
-
-      // Check if player wins
-      if (checkWinner(board, 'X')) {
-        delete tttGames[userId];
-        return res.send({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            flags: InteractionResponseFlags.EPHEMERAL,
-            content:
-              `You placed **X** at position **${position}**.\n` +
-              renderBoard(board) +
-              '\n🎉 You win! Game over.',
-          },
-        });
-      }
-
-      // Check for draw before bot moves
-      if (!board.includes(null)) {
-        delete tttGames[userId];
-        return res.send({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            flags: InteractionResponseFlags.EPHEMERAL,
-            content:
-              `You placed **X** at position **${position}**.\n` +
-              renderBoard(board) +
-              '\n🤝 It\'s a draw! Game over.',
-          },
-        });
-      }
-
-      // Bot move: O
-      const botIndex = getBotMoveIndex(board);
-      if (botIndex === null) {
-        delete tttGames[userId];
-        return res.send({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            flags: InteractionResponseFlags.EPHEMERAL,
-            content:
-              `You placed **X** at position **${position}**.\n` +
-              renderBoard(board) +
-              '\n🤝 It\'s a draw! Game over.',
-          },
-        });
-      }
-
-      board[botIndex] = 'O';
-      const botPos = botIndex + 1;
-
-      // Check if bot wins
-      if (checkWinner(board, 'O')) {
-        delete tttGames[userId];
-        return res.send({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            flags: InteractionResponseFlags.EPHEMERAL,
-            content:
-              `You placed **X** at position **${position}**.\n` +
-              `I placed **O** at position **${botPos}**.\n` +
-              renderBoard(board) +
-              '\n😈 I win! Game over.',
-          },
-        });
-      }
-
-      // Check for draw after bot move
-      if (!board.includes(null)) {
-        delete tttGames[userId];
-        return res.send({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            flags: InteractionResponseFlags.EPHEMERAL,
-            content:
-              `You placed **X** at position **${position}**.\n` +
-              `I placed **O** at position **${botPos}**.\n` +
-              renderBoard(board) +
-              '\n🤝 It\'s a draw! Game over.',
-          },
-        });
-      }
-
-      // Game continues – save state for this user
-      tttGames[userId] = board;
-
+      // Otherwise, handle the move
+      const result = handleTicTacToeMove(userId, position);
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-          flags: InteractionResponseFlags.EPHEMERAL,
-          content:
-            `You placed **X** at position **${position}**.\n` +
-            `I placed **O** at position **${botPos}**.\n` +
-            renderBoard(board) +
-            '\nYour turn again! Use `/tictactoe position:<1-9>` to keep playing.',
-        },
+        data: result,
       });
     }
 
@@ -1242,7 +736,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         req.body.member?.user?.id ||
         req.body.user?.id;
 
-      const result = handleHangmanStart(userId);
+      const result = startHangmanGame(userId);
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: result,
@@ -1263,12 +757,20 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
 
     // Hotter/Colder game commands
     if (name === 'guessgame') {
-      return res.send(startGuessGame(userId));
+      const result = startGuessGame(userId);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result
+      });
     }
 
     if (name === 'guess') {
-      const number = getOptionValue(options, 'number');
-      return res.send(handleGuess(userId, number));
+      const number = getOptionValue(data.options, 'number');
+      const result = handleGuess(userId, number);
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: result
+      });
     }
 
 
