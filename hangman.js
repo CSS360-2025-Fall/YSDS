@@ -10,7 +10,8 @@ const HANGMAN_MAX_WRONG = 6;
 
 // Word list location
 // /data/hangman_words.txt
-const WORDS_PATH = new URL('./data/hangman_words.txt', import.meta.url);
+const WORDS_PATH = new URL('./hangman_words.txt', import.meta.url);
+
 
 export const HANGMAN_STAGES = [
   "```\n\n\n\n\n=====\n```",

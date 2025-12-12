@@ -41,8 +41,10 @@ import {
 // 🔹 Multiplayer blackjack imports
 import {
   startBlackjackMulti,
-  handleBlackjackMultiAction
+  handleBlackjackMultiAction,
+  placeBet            // ✅ ADD THIS
 } from './blackjack-multi.js';
+
 
 // Store active games
 const blackjackGames = {};          // single-player games
@@ -142,7 +144,7 @@ const HELP_ENTRIES = [
   { name: 'help', description: 'Show available commands or details for one command.' },
   { name: 'tictactoe', description: 'Play tic tac toe vs the bot. Use /tictactoe position:<1-9> to make moves.' },
   { name: 'hangman', description: 'Start a text Hangman game. Guess letters with /hangguess letter:<a-z>.' },
-  { name: 'guessgame', description: 'are you good at guessing come find out'},
+  { name: 'guessgame', description: 'are you good at guessing come find out' },
   { name: 'joke', description: 'Get a random joke.' },
   { name: 'quote', description: 'Get a random inspirational or funny quote.' },
   { name: 'remindme', description: 'Set a reminder, e.g. /remindme duration:10m message:Take a break.' },
@@ -265,10 +267,10 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
       const content = entry
         ? `**/${entry.name}**\n${entry.description}`
         : [
-            '🤖 **Available commands**',
-            HELP_ENTRIES.map(e => `• **/${e.name}** — ${e.description}`).join('\n'),
-            'Use `/help command:<name>` for details on one command.',
-          ].join('\n');
+          '🤖 **Available commands**',
+          HELP_ENTRIES.map(e => `• **/${e.name}** — ${e.description}`).join('\n'),
+          'Use `/help command:<name>` for details on one command.',
+        ].join('\n');
 
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -522,6 +524,22 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         data: result,
       });
     }
+
+    // 💰 BET COMMAND (v2.1 – multiplayer blackjack)
+    if (name === 'bet') {
+      const amount = data.options?.[0]?.value;
+
+      const message = placeBet(userId, amount);
+
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          flags: InteractionResponseFlags.EPHEMERAL,
+          content: message,
+        },
+      });
+    }
+
 
     // 🃏 MULTIPLAYER BLACKJACK
     if (name === 'blackjack_multi') {

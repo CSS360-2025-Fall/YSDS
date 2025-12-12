@@ -280,6 +280,23 @@ const BLACKJACK_MULTI_COMMAND = {
   contexts: [0, 2],
 };
 
+// 💰 Multiplayer Blackjack betting (v2.1)
+const BET_COMMAND = {
+  name: 'bet',
+  description: 'Place a bet for multiplayer blackjack',
+  options: [
+    {
+      type: 4, // INTEGER
+      name: 'amount',
+      description: 'Bet amount (10–500)',
+      required: true,
+    },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
+
 const SIMON_COMMAND = {
   name: 'simon',
   description: 'Start a Simon Says memory challenge',
@@ -332,7 +349,7 @@ const HELP_COMMAND = {
 
 // Add it to the list of commands you register
 
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND, GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, TICTACTOE_COMMAND, REMIND_COMMAND, MATH_COMMAND, HANGMAN_COMMAND, HANGGUESS_COMMAND, BLACKJACK_COMMAND, BLACKJACK_MULTI_COMMAND, SIMON_COMMAND, SIMON_GUESS_COMMAND, SIMON_LEADERBOARD_COMMAND, HELP_COMMAND];
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, DIV_COMMAND, MULTI_COMMAND, ADD_COMMAND, SUB_COMMAND, GUESSGAME_COMMAND, GUESS_COMMAND, JOKE_COMMAND, QUOTE_COMMAND, TICTACTOE_COMMAND, REMIND_COMMAND, MATH_COMMAND, HANGMAN_COMMAND, HANGGUESS_COMMAND, BLACKJACK_COMMAND, BLACKJACK_MULTI_COMMAND, BET_COMMAND, SIMON_COMMAND, SIMON_GUESS_COMMAND, SIMON_LEADERBOARD_COMMAND, HELP_COMMAND];
 
 // Add it at the bottom of commands.js
 // ===== GLOBAL COMMAND INSTALL =====

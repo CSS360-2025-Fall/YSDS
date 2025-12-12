@@ -1,18 +1,57 @@
 // blackjack-multi.js
 // Turn-based multiplayer Blackjack using a shared lobby + table.
+// FINAL v3.0 – fully playable multiplayer blackjack
+
+// =======================
+// BETTING STATE
+// =======================
+
+const playerBalances = {};
+const playerBets = {};
+
+function getBalance(userId) {
+    if (!(userId in playerBalances)) {
+        playerBalances[userId] = 1000;
+    }
+    return playerBalances[userId];
+}
+
+function hasBet(userId) {
+    return playerBets[userId] !== undefined;
+}
+
+function clearBet(userId) {
+    delete playerBets[userId];
+}
+
+export function placeBet(userId, amount) {
+    getBalance(userId);
+
+    if (amount < 10 || amount > 500) {
+        return "❌ Bet must be between **10 and 500** chips.";
+    }
+
+    if (amount > playerBalances[userId]) {
+        return `❌ Insufficient balance. You have **${playerBalances[userId]}** chips.`;
+    }
+
+    playerBets[userId] = amount;
+    return `💰 **Bet placed!**\nBet: **${amount} chips**\nBalance: **${playerBalances[userId]} chips**`;
+}
+
+// =======================
+// CARD / HAND UTILITIES
+// =======================
 
 function createDeck() {
     const suits = ["Hearts", "Diamonds", "Clubs", "Spades"];
     const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
     const deck = [];
 
-    for (const suit of suits) {
-        for (const rank of ranks) {
-            deck.push({ rank, suit });
-        }
+    for (const s of suits) {
+        for (const r of ranks) deck.push({ rank: r, suit: s });
     }
 
-    // Shuffle
     for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -32,8 +71,7 @@ function cardValue(rank) {
 }
 
 function handValue(cards) {
-    let total = 0;
-    let aces = 0;
+    let total = 0, aces = 0;
 
     for (const c of cards) {
         total += cardValue(c.rank);
@@ -49,137 +87,71 @@ function handValue(cards) {
 }
 
 function formatCard(c) {
-    const nameMap = {
-        A: "Ace",
-        K: "King",
-        Q: "Queen",
-        J: "Jack",
-    };
-    const rankName = nameMap[c.rank] || c.rank;
-    return `${rankName} of ${c.suit}`;
+    const names = { A: "Ace", K: "King", Q: "Queen", J: "Jack" };
+    return `${names[c.rank] || c.rank} of ${c.suit}`;
 }
 
 function formatHand(cards) {
     return cards.map(formatCard).join("\n- ");
 }
 
-function formatPlayersList(table) {
-    if (!table.players.length) return "(no players yet)";
-    return table.players.map(id => `- <@${id}>`).join("\n");
-}
+// =======================
+// UI BUILDERS
+// =======================
 
 function buildLobbyMessage(table) {
     let msg = "🃏 **Blackjack Multiplayer Lobby**\n\n";
-    msg += `Host: <@${table.hostId}>\n\n`;
-    msg += "**Players joined:**\n";
-    msg += `${formatPlayersList(table)}\n\n`;
-    msg += "Press **Join** to enter.\nHost can press **Start** when ready.";
+    msg += `Host: <@${table.hostId}>\n\n**Players:**\n`;
+
+    if (!table.players.length) msg += "(no players yet)\n";
+
+    for (const pid of table.players) {
+        msg += `- <@${pid}> (${hasBet(pid) ? `💰 Bet: ${playerBets[pid]}` : "❌ No bet"})\n`;
+    }
+
+    msg += "\nUse `/bet amount` before joining.\n";
+    msg += "Host can start only when all players have bet.";
     return msg;
 }
 
 function buildLobbyButtons(tableId) {
-    return [
-        {
-            type: 1,
-            components: [
-                {
-                    type: 2,
-                    custom_id: `bjm_join:${tableId}`,
-                    style: 1,
-                    label: "Join",
-                },
-                {
-                    type: 2,
-                    custom_id: `bjm_start:${tableId}`,
-                    style: 3,
-                    label: "Start Game",
-                },
-                {
-                    type: 2,
-                    custom_id: `bjm_cancel:${tableId}`,
-                    style: 4,
-                    label: "Cancel",
-                },
-            ],
-        },
-    ];
+    return [{
+        type: 1,
+        components: [
+            { type: 2, custom_id: `bjm_join:${tableId}`, style: 1, label: "Join" },
+            { type: 2, custom_id: `bjm_start:${tableId}`, style: 3, label: "Start Game" },
+            { type: 2, custom_id: `bjm_cancel:${tableId}`, style: 4, label: "Cancel" },
+        ],
+    }];
 }
 
 function buildTurnMessage(table) {
-    const players = table.players;
-    const currentIndex = table.currentTurnIndex;
-    const currentPlayerId = players[currentIndex];
-    const hand = table.hands[currentPlayerId].cards;
-    const playerTotal = handValue(hand);
+    const pid = table.players[table.currentTurnIndex];
+    const hand = table.hands[pid].cards;
 
     let msg = "🃏 **Blackjack Multiplayer**\n\n";
-    msg += `🎮 **Turn ${currentIndex + 1} of ${players.length}:** <@${currentPlayerId}>\n\n`;
-
-    msg += "**Your Hand:**\n";
-    msg += `- ${formatHand(hand)}\n`;
-    msg += `Total: ${playerTotal}\n\n`;
-
-    msg += "**Dealer Shows:**\n";
-    msg += `- ${formatCard(table.dealer[0])}\n`;
-    msg += "- Hidden card\n\n";
-
-    msg += "**Players:**\n";
-    for (const pid of players) {
-        const h = table.hands[pid];
-        const status = h.finished
-            ? (h.surrendered ? "surrendered" : (h.busted ? "busted" : "done"))
-            : (pid === currentPlayerId ? "playing" : "waiting");
-        msg += `- <@${pid}> (${status})\n`;
-    }
-
-    msg += "\nUse the buttons to play your turn.";
+    msg += `🎮 **Current Turn:** <@${pid}>\n\n`;
+    msg += "**Your Hand:**\n- " + formatHand(hand) + "\n";
+    msg += `Total: ${handValue(hand)}\n\n`;
+    msg += "**Dealer Shows:**\n- " + formatCard(table.dealer[0]) + "\n- Hidden card\n\n";
     return msg;
 }
 
 function buildTurnButtons(tableId) {
-    return [
-        {
-            type: 1,
-            components: [
-                {
-                    type: 2,
-                    custom_id: `bjm_hit:${tableId}`,
-                    style: 1,
-                    label: "Hit",
-                },
-                {
-                    type: 2,
-                    custom_id: `bjm_stand:${tableId}`,
-                    style: 2,
-                    label: "Stand",
-                },
-                {
-                    type: 2,
-                    custom_id: `bjm_double:${tableId}`,
-                    style: 3,
-                    label: "Double",
-                },
-                {
-                    type: 2,
-                    custom_id: `bjm_surrender:${tableId}`,
-                    style: 4,
-                    label: "Surrender",
-                },
-            ],
-        },
-    ];
+    return [{
+        type: 1,
+        components: [
+            { type: 2, custom_id: `bjm_hit:${tableId}`, style: 1, label: "Hit" },
+            { type: 2, custom_id: `bjm_stand:${tableId}`, style: 2, label: "Stand" },
+            { type: 2, custom_id: `bjm_double:${tableId}`, style: 3, label: "Double" },
+            { type: 2, custom_id: `bjm_surrender:${tableId}`, style: 4, label: "Surrender" },
+        ],
+    }];
 }
 
-function allPlayersDone(table) {
-    return table.players.every(pid => table.hands[pid].finished);
-}
-
-function advanceTurn(table) {
-    const n = table.players.length;
-    while (table.currentTurnIndex < n && table.hands[table.players[table.currentTurnIndex]].finished) {
-        table.currentTurnIndex++;
-    }
-}
+// =======================
+// DEALER + RESULTS
+// =======================
 
 function dealerPlay(table) {
     while (handValue(table.dealer) < 17) {
@@ -188,45 +160,43 @@ function dealerPlay(table) {
 }
 
 function buildResultsMessage(table) {
+    dealerPlay(table);
+
     const dealerTotal = handValue(table.dealer);
     let msg = "🃏 **Blackjack Results**\n\n";
-
-    msg += "**Dealer Hand:**\n";
-    msg += `- ${formatHand(table.dealer)}\n`;
-    msg += `Total: ${dealerTotal}\n\n`;
-
-    msg += "**Player Outcomes:**\n";
+    msg += "**Dealer Hand:**\n- " + formatHand(table.dealer) + `\nTotal: ${dealerTotal}\n\n`;
+    msg += "**Player Results:**\n";
 
     for (const pid of table.players) {
         const h = table.hands[pid];
         const total = handValue(h.cards);
+        const bet = playerBets[pid];
 
-        let outcome = "";
-        if (h.surrendered) {
-            outcome = "Surrendered (lost).";
-        } else if (h.busted) {
-            outcome = "Busted. Dealer wins.";
-        } else if (dealerTotal > 21) {
-            outcome = "Dealer busted. You win!";
-        } else if (total > dealerTotal) {
-            outcome = "You win!";
-        } else if (total < dealerTotal) {
-            outcome = "Dealer wins.";
-        } else {
-            outcome = "It's a tie.";
+        let outcome = "Push";
+
+        if (h.surrendered || h.busted || (dealerTotal <= 21 && total < dealerTotal)) {
+            playerBalances[pid] -= bet;
+            outcome = "Lose";
+        } else if (dealerTotal > 21 || total > dealerTotal) {
+            playerBalances[pid] += bet;
+            outcome = "Win";
         }
 
-        msg += `- <@${pid}> — ${outcome} (Total: ${total})\n`;
+        msg += `- <@${pid}> → **${outcome}** | Bet: ${bet} | Balance: ${playerBalances[pid]}\n`;
+        clearBet(pid);
     }
 
     return msg;
 }
 
-// 🟢 Called when /blackjack_multi is used
+// =======================
+// ENTRY POINTS
+// =======================
+
 export function startBlackjackMulti(tables, tableId, hostId) {
     tables[tableId] = {
         hostId,
-        players: [hostId],
+        players: [],
         started: false,
         deck: null,
         dealer: [],
@@ -234,139 +204,80 @@ export function startBlackjackMulti(tables, tableId, hostId) {
         currentTurnIndex: 0,
     };
 
-    const table = tables[tableId];
-
     return {
-        content: buildLobbyMessage(table),
+        content: buildLobbyMessage(tables[tableId]),
         components: buildLobbyButtons(tableId),
     };
 }
 
-// 🟢 Called when a bjm_* button is clicked
 export function handleBlackjackMultiAction(tables, tableId, userId, action) {
     const table = tables[tableId];
+    if (!table) return { content: "❌ Lobby not found.", ephemeral: true };
 
-    if (!table) {
-        return {
-            content: "❌ This blackjack lobby no longer exists.",
-            components: [],
-            ephemeral: true,
-        };
-    }
-
-    // Lobby phase actions
+    // ===== LOBBY =====
     if (!table.started) {
         if (action === "join") {
-            if (!table.players.includes(userId)) {
-                table.players.push(userId);
-            }
-            return {
-                content: buildLobbyMessage(table),
-                components: buildLobbyButtons(tableId),
-                ephemeral: false,
-            };
+            if (!hasBet(userId)) return { content: "❌ Place a bet first.", ephemeral: true };
+            if (!table.players.includes(userId)) table.players.push(userId);
+            return { content: buildLobbyMessage(table), components: buildLobbyButtons(tableId) };
         }
 
         if (action === "start") {
-            if (userId !== table.hostId) {
-                return {
-                    content: "❌ Only the host can start the game.",
-                    components: [],
-                    ephemeral: true,
-                };
-            }
+            if (userId !== table.hostId) return { content: "❌ Only host can start.", ephemeral: true };
+            if (!table.players.every(hasBet)) return { content: "⏳ Waiting for bets.", ephemeral: true };
 
-            // Initialize deck, dealer, and hands
+            table.started = true;
             table.deck = createDeck();
             table.dealer = [draw(table.deck), draw(table.deck)];
-            table.hands = {};
-            for (const pid of table.players) {
-                table.hands[pid] = {
-                    cards: [draw(table.deck), draw(table.deck)],
-                    finished: false,
-                    surrendered: false,
-                    busted: false,
-                };
-            }
-            table.started = true;
-            table.currentTurnIndex = 0;
 
-            return {
-                content: buildTurnMessage(table),
-                components: buildTurnButtons(tableId),
-                ephemeral: false,
-            };
+            for (const pid of table.players) {
+                table.hands[pid] = { cards: [draw(table.deck), draw(table.deck)], busted: false, surrendered: false, finished: false };
+            }
+
+            return { content: buildTurnMessage(table), components: buildTurnButtons(tableId) };
         }
 
         if (action === "cancel") {
-            if (userId !== table.hostId) {
-                return {
-                    content: "❌ Only the host can cancel the lobby.",
-                    components: [],
-                    ephemeral: true,
-                };
-            }
             delete tables[tableId];
-            return {
-                content: "❌ The blackjack lobby has been cancelled by the host.",
-                components: [],
-                ephemeral: false,
-            };
+            return { content: "❌ Lobby cancelled.", components: [] };
         }
     }
 
-    // Game phase actions
-    if (!table.started) {
-        return {
-            content: "❌ The game has not started yet.",
-            components: [],
-            ephemeral: true,
-        };
-    }
+    // ===== IN-GAME =====
+    const pid = table.players[table.currentTurnIndex];
+    if (userId !== pid) return { content: "⏳ Not your turn.", ephemeral: true };
 
-    const currentPlayerId = table.players[table.currentTurnIndex];
-    if (userId !== currentPlayerId) {
-        return {
-            content: "⏳ It's not your turn.",
-            components: [],
-            ephemeral: true,
-        };
-    }
-
-    const hand = table.hands[currentPlayerId];
+    const hand = table.hands[pid];
 
     if (action === "hit") {
         hand.cards.push(draw(table.deck));
         if (handValue(hand.cards) > 21) {
-            hand.finished = true;
             hand.busted = true;
+            hand.finished = true;
         }
-    } else if (action === "stand") {
-        hand.finished = true;
-    } else if (action === "double") {
-        hand.cards.push(draw(table.deck));
-        hand.finished = true;
-    } else if (action === "surrender") {
-        hand.finished = true;
-        hand.surrendered = true;
     }
 
-    // After player's action, either next player or dealer
-    if (allPlayersDone(table)) {
-        dealerPlay(table);
-        const resultMsg = buildResultsMessage(table);
-        delete tables[tableId];
-        return {
-            content: resultMsg,
-            components: [],
-            ephemeral: false,
-        };
-    } else {
-        advanceTurn(table);
-        return {
-            content: buildTurnMessage(table),
-            components: buildTurnButtons(tableId),
-            ephemeral: false,
-        };
+    if (action === "stand") hand.finished = true;
+    if (action === "surrender") { hand.surrendered = true; hand.finished = true; }
+    if (action === "double") {
+        hand.cards.push(draw(table.deck));
+        hand.finished = true;
     }
+
+    // Advance turn
+    do {
+        table.currentTurnIndex++;
+    } while (
+        table.currentTurnIndex < table.players.length &&
+        table.hands[table.players[table.currentTurnIndex]].finished
+    );
+
+    // All done → results
+    if (table.currentTurnIndex >= table.players.length) {
+        const result = buildResultsMessage(table);
+        delete tables[tableId];
+        return { content: result, components: [] };
+    }
+
+    return { content: buildTurnMessage(table), components: buildTurnButtons(tableId) };
 }
