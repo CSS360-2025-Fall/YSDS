@@ -4,7 +4,7 @@ export async function DiscordRequest(endpoint, options) {
   // append endpoint to root API URL
   const url = 'https://discord.com/api/v10/' + endpoint;
   // Stringify payloads
-  if (options.body) options.body = JSON.stringify(options.body);
+  if (options.body) options.body = JSON.stringify(options.body); oka
   // Use fetch to make requests
   const res = await fetch(url, {
     headers: {
@@ -38,7 +38,7 @@ export async function InstallGlobalCommands(appId, commands) {
 
 // Simple method that returns a random emoji from list
 export function getRandomEmoji() {
-  const emojiList = ['😭','😄','😌','🤓','😎','😤','🤖','😶‍🌫️','🌏','📸','💿','👋','🌊','✨'];
+  const emojiList = ['😭', '😄', '😌', '🤓', '😎', '😤', '🤖', '😶‍🌫️', '🌏', '📸', '💿', '👋', '🌊', '✨'];
   return emojiList[Math.floor(Math.random() * emojiList.length)];
 }
 
