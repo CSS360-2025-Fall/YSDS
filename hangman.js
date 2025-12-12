@@ -78,55 +78,121 @@ function renderHangmanState(game) {
 
 // Starts a new game for a user
 export async function startHangmanGame(userId) {
-  const word = await pickRandomWord();
+  try {
+    const word = await pickRandomWord();
 
-  hangmanGames.set(userId, {
-    word,
-    guessedLetters: new Set(),
-    livesLeft: HANGMAN_MAX_WRONG,
-    maxLives: HANGMAN_MAX_WRONG,
-  });
+    hangmanGames.set(userId, {
+      word,
+      guessedLetters: new Set(),
+      livesLeft: HANGMAN_MAX_WRONG,
+      maxLives: HANGMAN_MAX_WRONG,
+    });
 
-  return {
-    flags: InteractionResponseFlags.EPHEMERAL,
-    content:
-      '🎮 New Hangman game started!\n' +
-      renderHangmanState(hangmanGames.get(userId)) +
-      '\nGuess a letter or the whole word with `/hangguess guess:<...>`.',
-  };
+    return {
+      flags: InteractionResponseFlags.EPHEMERAL,
+      content:
+        '🎮 New Hangman game started!\n' +
+        renderHangmanState(hangmanGames.get(userId)) +
+        '\nGuess a letter or the whole word with `/hangguess guess:<...>`.',
+    };
+  } catch (err) {
+    console.error('startHangmanGame error:', err);
+    return {
+      flags: InteractionResponseFlags.EPHEMERAL,
+      content:
+        '❌ Hangman failed to start. Check that `data/hangman_words.txt` exists and the bot can read it.',
+    };
+  }
 }
 
 // Handles guesses (letter or full word)
 // Slash command option: name="guess", type=STRING, required=true
 export function handleHangmanGuess(data, userId) {
-  const game = hangmanGames.get(userId);
+  try {
+    const game = hangmanGames.get(userId);
 
-  if (!game) {
-    return {
-      flags: InteractionResponseFlags.EPHEMERAL,
-      content: "❌ You don't have an active Hangman game. Start one with `/hangman`.",
-    };
-  }
-
-  const guessOption = data.options?.find(o => o.name === 'guess');
-  const raw = String(guessOption?.value || '').toLowerCase().trim();
-
-  if (!raw) {
-    return {
-      flags: InteractionResponseFlags.EPHEMERAL,
-      content: '❌ Please provide a guess.',
-    };
-  }
-
-  if (/^[a-z]{2,}$/.test(raw)) {
-    if (raw === game.word) {
-      hangmanGames.delete(userId);
+    if (!game) {
       return {
         flags: InteractionResponseFlags.EPHEMERAL,
-        content:
-          '🎉 You guessed the word!\n```text\n' +
-          `Word:   ${game.word}\n` +
-          '```',
+        content: "❌ You don't have an active Hangman game. Start one with `/hangman`.",
+      };
+    }
+
+    const guessOption = data.options?.find(o => o.name === 'guess');
+    const raw = String(guessOption?.value || '').toLowerCase().trim();
+
+    if (!raw) {
+      return {
+        flags: InteractionResponseFlags.EPHEMERAL,
+        content: '❌ Please provide a guess.',
+      };
+    }
+
+    // Full word guess
+    if (/^[a-z]{2,}$/.test(raw)) {
+      if (raw === game.word) {
+        hangmanGames.delete(userId);
+        return {
+          flags: InteractionResponseFlags.EPHEMERAL,
+          content:
+            '🎉 You guessed the word!\n```text\n' +
+            `Word:   ${game.word}\n` +
+            '```',
+        };
+      }
+
+      game.livesLeft--;
+
+      if (game.livesLeft <= 0) {
+        hangmanGames.delete(userId);
+        return {
+          flags: InteractionResponseFlags.EPHEMERAL,
+          content: '💀 No lives left. Game over!\n' + `The word was: **${game.word}**`,
+        };
+      }
+
+      return {
+        flags: InteractionResponseFlags.EPHEMERAL,
+        content: `❌ Nope, **${raw}** is not the word.\n` + renderHangmanState(game),
+      };
+    }
+
+    // Single letter guess
+    if (!/^[a-z]$/.test(raw)) {
+      return {
+        flags: InteractionResponseFlags.EPHEMERAL,
+        content: '❌ Guess must be a single letter or a full word.',
+      };
+    }
+
+    const letter = raw;
+
+    if (game.guessedLetters.has(letter)) {
+      return {
+        flags: InteractionResponseFlags.EPHEMERAL,
+        content: `⚠️ You already guessed **${letter}**.\n` + renderHangmanState(game),
+      };
+    }
+
+    game.guessedLetters.add(letter);
+
+    if (game.word.includes(letter)) {
+      const won = game.word.split('').every(ch => game.guessedLetters.has(ch));
+
+      if (won) {
+        hangmanGames.delete(userId);
+        return {
+          flags: InteractionResponseFlags.EPHEMERAL,
+          content:
+            '🎉 You guessed the word!\n```text\n' +
+            `Word:   ${game.word}\n` +
+            '```',
+        };
+      }
+
+      return {
+        flags: InteractionResponseFlags.EPHEMERAL,
+        content: `✅ Good guess! **${letter}** is in the word.\n` + renderHangmanState(game),
       };
     }
 
@@ -142,62 +208,13 @@ export function handleHangmanGuess(data, userId) {
 
     return {
       flags: InteractionResponseFlags.EPHEMERAL,
-      content: `❌ Nope, **${raw}** is not the word.\n` + renderHangmanState(game),
+      content: `❌ Nope, **${letter}** is not in the word.\n` + renderHangmanState(game),
     };
-  }
-
-  if (!/^[a-z]$/.test(raw)) {
+  } catch (err) {
+    console.error('handleHangmanGuess error:', err);
     return {
       flags: InteractionResponseFlags.EPHEMERAL,
-      content: '❌ Guess must be a single letter or a full word.',
+      content: '❌ Hangman error while processing your guess.',
     };
   }
-
-  const letter = raw;
-
-  if (game.guessedLetters.has(letter)) {
-    return {
-      flags: InteractionResponseFlags.EPHEMERAL,
-      content: `⚠️ You already guessed **${letter}**.\n` + renderHangmanState(game),
-    };
-  }
-
-  game.guessedLetters.add(letter);
-
-  if (game.word.includes(letter)) {
-    const won = game.word
-      .split('')
-      .every(ch => game.guessedLetters.has(ch));
-
-    if (won) {
-      hangmanGames.delete(userId);
-      return {
-        flags: InteractionResponseFlags.EPHEMERAL,
-        content:
-          '🎉 You guessed the word!\n```text\n' +
-          `Word:   ${game.word}\n` +
-          '```',
-      };
-    }
-
-    return {
-      flags: InteractionResponseFlags.EPHEMERAL,
-      content: `✅ Good guess! **${letter}** is in the word.\n` + renderHangmanState(game),
-    };
-  }
-
-  game.livesLeft--;
-
-  if (game.livesLeft <= 0) {
-    hangmanGames.delete(userId);
-    return {
-      flags: InteractionResponseFlags.EPHEMERAL,
-      content: '💀 No lives left. Game over!\n' + `The word was: **${game.word}**`,
-    };
-  }
-
-  return {
-    flags: InteractionResponseFlags.EPHEMERAL,
-    content: `❌ Nope, **${letter}** is not in the word.\n` + renderHangmanState(game),
-  };
 }
